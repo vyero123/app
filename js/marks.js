@@ -1,6 +1,26 @@
-/* Shared mark geometry, exported so tools/measure can render them in isolation.
-   Kept in one place so the comparison, the measurement and the app cannot
-   drift apart. */
+/**
+ * marks.js — the shadow-mode side tokens.
+ *
+ * When the pieces are hidden, an occupied square is marked by a symbol in the
+ * middle of it: White is an O, Black is an X. The side rides on SHAPE, which
+ * is a channel nothing else in this app uses — hue already carries which side
+ * controls a square and lightness carries how many attackers, so putting the
+ * piece's side on either of those is what made every earlier attempt a
+ * compromise. Shape is also the most colour-blind-robust signal available,
+ * since O-versus-X is topology rather than colour.
+ *
+ * Both marks are drawn in ONE ink with a dark keyline beneath, so legibility
+ * does not depend on what the tint underneath is doing.
+ *
+ * The other reason for this shape: an O is mostly hollow and an X is mostly
+ * gaps, so the influence colour reads straight through. Measured on a loud
+ * amber square, the share of the square still showing its tint is 67.8% for
+ * the O and 73.4% for the X — as much as the old edge ring left, and far more
+ * than a filled chip (57%). See tools/measure-tint.mjs.
+ *
+ * Geometry is tuned for a 42px square, which is what a square measures on a
+ * 375px phone.
+ */
 const SQ = 42;
 
 export function chipMark(side, king) {
@@ -52,10 +72,17 @@ export function oxMark(side, king) {
   return out;
 }
 
-/** The ring that shipped before, for comparison. */
+/** The edge ring this replaced. Kept only so tools/measure-tint.mjs can
+    report the before-and-after honestly. */
 export function ringMark(side) {
   const main = side === 'w' ? '#ffffff' : '#04060b';
   const key = side === 'w' ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.75)';
   return `<rect x="3.75" y="3.75" width="34.5" height="34.5" rx="3" fill="none" stroke="${key}" stroke-width="3.5"/>`
        + `<rect x="3" y="3" width="36" height="36" rx="4" fill="none" stroke="${main}" stroke-width="2"/>`;
+}
+
+
+/** A complete <svg> for a square's mark, ready to drop into the DOM. */
+export function markSvg(side, isKing) {
+  return `<svg viewBox="0 0 ${SQ} ${SQ}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">${oxMark(side, isKing)}</svg>`;
 }

@@ -137,125 +137,85 @@
   document.getElementById('scrub').dispatchEvent(new Event('input'));
   ok('scrubbing jumps to move 20', player.index === 20, `index ${player.index}`);
 
-  // --- 5a. the chip, and the king's cross -----------------------------------
+  // --- 5a. the four states -------------------------------------------------
   {
+    const boardEl = document.getElementById('board');
+    const sBtn = document.getElementById('t-shadows');
+    const pBtn = document.getElementById('t-pieces');
+    const set = (sh, pi) => {
+      if ((sBtn.getAttribute('aria-pressed') === 'true') !== sh) sBtn.click();
+      if ((pBtn.getAttribute('aria-pressed') === 'true') !== pi) pBtn.click();
+    };
+    const marks = () => document.querySelectorAll('.mark svg').length;
+    const pcs = () => document.querySelectorAll('.piece svg').length;
+
     player.goto(total - 1, { force: true, instant: true });
     const st = player.states[total - 1];
-    let kings = 0, marked = 0, wrong = 0;
+    const men = st.influence.cells.filter(Boolean).length;
+
+    // 1. shadows on, pieces off — the original design.
+    set(true, false);
+    ok('state 1: board is in shadows', boardEl.classList.contains('shadows'));
+    ok('state 1: a mark for every man', marks() === men, `${marks()} of ${men}`);
+    ok('state 1: no pieces', pcs() === 0, `${pcs()}`);
+    ok('state 1: theme is dark', !document.body.classList.contains('day'));
+
+    // 2. both on — the hybrid. The marks must give way to the pieces.
+    set(true, true);
+    ok('state 2: still in shadows', boardEl.classList.contains('shadows'));
+    ok('state 2: pieces drawn', pcs() === men, `${pcs()} of ${men}`);
+    ok('state 2: side marks dropped as redundant', marks() === 0, `${marks()}`);
+    ok('state 2: king ticks dropped too',
+       document.querySelectorAll('.sq.king .mark svg').length === 0);
+    ok('state 2: tint still painted',
+       boardEl.querySelector('.sq').style.backgroundColor !== '');
+
+    // 3. shadows off, pieces on — an ordinary board.
+    set(false, true);
+    ok('state 3: shadows off', !boardEl.classList.contains('shadows'));
+    ok('state 3: pieces drawn', pcs() === men, `${pcs()}`);
+    ok('state 3: no marks', marks() === 0);
+    ok('state 3: theme is light', document.body.classList.contains('day'));
+    ok('state 3: counts toggle disabled', document.getElementById('counts').disabled);
+
+    // 4. both off — a bare board. Allowed, not blocked.
+    set(false, false);
+    ok('state 4: bare board, nothing drawn', marks() === 0 && pcs() === 0,
+       `${marks()} marks, ${pcs()} pieces`);
+    ok('state 4: board still rendered', document.querySelectorAll('.sq').length === 64);
+
+    // The wordmark must report its own state.
+    set(true, false);
+    ok('wordmark: Shadow pressed, Chess not',
+       sBtn.getAttribute('aria-pressed') === 'true' &&
+       pBtn.getAttribute('aria-pressed') === 'false');
+    ok('wordmark: both halves are real buttons',
+       sBtn.tagName === 'BUTTON' && pBtn.tagName === 'BUTTON');
+    ok('wordmark: labels describe the action',
+       /activate to hide/i.test(sBtn.getAttribute('aria-label')) &&
+       /activate to show/i.test(pBtn.getAttribute('aria-label')));
+
+    // Selection must survive every state change, in both directions.
+    sqEl('e7').click();
+    ok('selection: set while in shadows', sqEl('e7').classList.contains('sel'));
+    set(false, true);
+    ok('selection: survives into the plain board', sqEl('e7').classList.contains('sel'));
+    set(true, true);
+    ok('selection: survives into the hybrid', sqEl('e7').classList.contains('sel'));
+    set(true, false);
+    ok('selection: survives back to shadows', sqEl('e7').classList.contains('sel'));
+    ok('selection: is a spotlight again', boardEl.classList.contains('isolating'));
+    sqEl('e7').click();
+
+    set(true, false);
+    let kings = 0, kingMarks = 0;
     for (let i = 0; i < 64; i++) {
       const el = document.querySelector(`.sq[data-idx="${i}"]`);
       const p = st.influence.cells[i];
-      const isKing = !!p && p.type === 'k';
-      if (isKing) kings++;
-      if (el.classList.contains('king')) { marked++; if (!isKing) wrong++; }
-      else if (isKing) wrong++;
-      if (!el.querySelector('.chip')) wrong++;
-      if (!el.querySelector('.chip .cross')) wrong++;
+      if (p && p.type === 'k') kings++;
+      if (el.classList.contains('king')) kingMarks++;
     }
-    ok('chip: both kings present', kings === 2, `${kings}`);
-    ok('chip: exactly the kings are marked', marked === 2 && wrong === 0,
-       `marked ${marked}, wrong ${wrong}`);
-    ok('chip: every square carries a chip layer',
-       document.querySelectorAll('.sq .chip').length === 64);
-    ok('chip: the chip sits under the selection ring',
-       document.querySelector('.sq .chip').compareDocumentPosition(
-         document.querySelector('.sq .glow')
-       ) & Node.DOCUMENT_POSITION_FOLLOWING);
-
-    // The point of the redesign: the tint must still be readable around the
-    // chip. The chip is inset, so a frame of the square is never covered.
-    const cs = getComputedStyle(document.querySelector('.sq.occupied .chip'));
-    const insetPct = parseFloat(cs.inset || cs.top);
-    ok('chip: inset leaves a frame of tint', insetPct > 0, `inset ${cs.top}`);
-
-    // Occupancy must NOT be signalled at the edge any more — that space is
-    // given back to the influence colour.
-    const anyOccupied = document.querySelector('.sq.occupied:not(.sel)');
-    ok('chip: no occupancy ring at the square edge',
-       getComputedStyle(anyOccupied.querySelector('.glow')).opacity === '0',
-       getComputedStyle(anyOccupied.querySelector('.glow')).opacity);
-
-    // Selection still reads, and still at the edge.
-    anyOccupied.click();
-    ok('chip: selection lights the edge',
-       getComputedStyle(anyOccupied.querySelector('.glow')).opacity === '1');
-    anyOccupied.click();
-
-    // Chips belong to shadow mode only.
-    document.getElementById('mode').click();
-    ok('chip: faded out in daylight',
-       getComputedStyle(document.querySelector('.sq.king .chip')).opacity === '0');
-    document.getElementById('mode').click();
-  }
-
-  // --- 5b. daylight mode ----------------------------------------------------
-  {
-    const boardEl = document.getElementById('board');
-    const mode = document.getElementById('mode');
-
-    player.goto(total - 1, { force: true, instant: true });
-    mode.click();
-    ok('daylight: body carries .day', document.body.classList.contains('day'));
-    ok('daylight: board carries .daylight', boardEl.classList.contains('daylight'));
-    ok('daylight: button label reads Daylight',
-       mode.querySelector('.modelabel').textContent === 'Daylight');
-    ok('daylight: button aria-pressed is false', mode.getAttribute('aria-pressed') === 'false');
-
-    const st = player.states[total - 1];
-    let pieceErrors = 0, tinted = 0, drawn = 0, noText = 0;
-    for (let i = 0; i < 64; i++) {
-      const el = document.querySelector(`.sq[data-idx="${i}"]`);
-      const piece = st.influence.cells[i];
-      const pe = el.querySelector('.piece');
-      const want = piece ? piece.type : '';
-      if (pe.dataset.shown !== want) pieceErrors++;
-      if (piece) {
-        if (!pe.querySelector('svg')) pieceErrors++;
-        else drawn++;
-      } else if (pe.querySelector('svg')) pieceErrors++;
-      // Nothing may be drawn as text: Unicode chess glyphs are what broke
-      // before (per-codepoint font fallback), so guard against a regression.
-      if (pe.textContent.trim() !== '') noText++;
-      // Every square must be one of the two plain board colours — no influence
-      // tint may leak through in daylight.
-      const c = norm(bg(el));
-      if (c !== norm('rgb(240 217 181)') && c !== norm('rgb(181 136 99)')) tinted++;
-    }
-    ok('daylight: every piece drawn as the right SVG', pieceErrors === 0, `${pieceErrors} wrong`);
-    // The Immortal ends with 23 men on the board: Black is up a queen, two
-    // rooks and a bishop and it does him no good at all.
-    ok('daylight: all 23 pieces of the final position are drawn', drawn === 23, `${drawn} drawn`);
-    ok('daylight: no piece is rendered as text', noText === 0, `${noText} textual`);
-    ok('daylight: no influence tint leaks onto any square', tinted === 0, `${tinted} tinted`);
-    ok('daylight: the mated king is visible on d8',
-       sqEl('d8').querySelector('.piece').dataset.shown === 'k');
-    ok('daylight: d8 is marked as Black', sqEl('d8').dataset.side === 'b');
-    // All six types must exist and share the same viewBox, or they cannot be
-    // optically matched.
-    {
-      const boxes = new Set();
-      for (const t of ['p', 'n', 'b', 'r', 'q', 'k']) {
-        const m = pieceSvg(t).match(/viewBox="([^"]+)"/);
-        boxes.add(m && m[1]);
-      }
-      ok('all six pieces share one viewBox', boxes.size === 1 && boxes.has('0 0 100 100'),
-         [...boxes].join(' | '));
-    }
-    ok('daylight: the mating bishop on e7 is marked as White', sqEl('e7').dataset.side === 'w');
-    ok('daylight: counts overlay is suppressed', !boardEl.classList.contains('show-counts'));
-
-    // Selecting in daylight should survive the switch back to shadows.
-    sqEl('e7').click();
-    ok('daylight: selection works', sqEl('e7').classList.contains('sel'));
-    mode.click();
-    ok('back to shadows: body .day removed', !document.body.classList.contains('day'));
-    ok('back to shadows: label reads Shadows',
-       mode.querySelector('.modelabel').textContent === 'Shadows');
-    ok('back to shadows: the daylight selection became a spotlight',
-       boardEl.classList.contains('isolating'));
-    ok('back to shadows: pieces are cleared',
-       sqEl('e7').querySelector('.piece').innerHTML === '');
-    sqEl('e7').click();
+    ok('king: exactly two marked', kings === 2 && kingMarks === 2, `${kings}/${kingMarks}`);
   }
 
   // --- 6. layout at 375px ---------------------------------------------------

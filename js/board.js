@@ -14,6 +14,7 @@
 import { fileOf, rankOf, idxToSquare, FILES } from './influence.js';
 import { squareColour, dimmedColour, isolateColour } from './colour.js';
 import { pieceSvg } from './pieces.js';
+import { markSvg } from './marks.js';
 
 const PIECE_NAMES = {
   p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king',
@@ -45,14 +46,11 @@ export class BoardView {
       el.dataset.light = isLight ? '1' : '0';
       el.tabIndex = -1;
 
-      // Shadow mode marks an occupied square with a chip in the middle of the
-      // square rather than a ring at its edge. The chip is deliberately inset
-      // so the influence tint frames it on all four sides and stays readable —
-      // see the note in style.css.
-      const chip = document.createElement('span');
-      chip.className = 'chip';
-      chip.innerHTML = '<i class="cross"></i>';
-      el.appendChild(chip);
+      // When the pieces are hidden, an occupied square carries its side mark
+      // here — an O for White, an X for Black. See js/marks.js.
+      const mark = document.createElement('span');
+      mark.className = 'mark';
+      el.appendChild(mark);
 
       const glow = document.createElement('span');
       glow.className = 'glow';
@@ -125,23 +123,30 @@ export class BoardView {
    * @param {{from:number,to:number}|null} opts.lastMove
    * @param {number|null} opts.selected index of the piece being isolated
    * @param {boolean} opts.showCounts
-   * @param {boolean} opts.daylight  true = shadows off, real pieces shown
+   * @param {boolean} opts.shadows  paint the influence map
+   * @param {boolean} opts.pieces   draw the actual pieces
    * @param {boolean} opts.animate
+   *
+   * The two layers are independent, which gives four states. When the pieces
+   * are on, the side marks and the king's ticks are dropped: the piece itself
+   * already says which side it is and which piece it is, and stacking two
+   * identity systems on one square is just noise.
    */
-  render({ influence, lastMove, selected, showCounts, daylight = false, animate = true }) {
+  render({ influence, lastMove, selected, showCounts, shadows = true, pieces = false, animate = true }) {
     const { w, b, cells, controlledBy } = influence;
     const origin = lastMove ? lastMove.to : 36; // e5-ish centre when no move yet
 
-    // In daylight the shadows are switched off entirely: no tint, no
-    // spotlight, no counts — just the position, drawn the ordinary way.
+    // A spotlight is a statement about influence, so it only means anything
+    // while the shadows are on.
     const spotlight =
-      !daylight && selected != null && controlledBy.has(selected)
+      shadows && selected != null && controlledBy.has(selected)
         ? new Set(controlledBy.get(selected))
         : null;
 
-    this.root.classList.toggle('daylight', daylight);
+    this.root.classList.toggle('shadows', shadows);
+    this.root.classList.toggle('pieces', pieces);
     this.root.classList.toggle('isolating', !!spotlight);
-    this.root.classList.toggle('show-counts', !!showCounts && !daylight);
+    this.root.classList.toggle('show-counts', !!showCounts && shadows);
 
     for (let i = 0; i < 64; i++) {
       const el = this.cells[i];
@@ -159,7 +164,7 @@ export class BoardView {
         el.style.transitionDelay = '0ms';
       }
 
-      if (daylight) {
+      if (!shadows) {
         el.style.backgroundColor = isLight ? DAY_LIGHT : DAY_DARK;
       } else if (spotlight) {
         if (i === selected) {
@@ -175,7 +180,7 @@ export class BoardView {
 
       el.classList.toggle('occupied', !!piece);
       // Deliberate exception to the shadow premise: the king is the one piece
-      // you need in order to orient at all, so it is allowed to show itself.
+      // you need in order to orient at all, so its mark carries corner ticks.
       el.classList.toggle('king', !!piece && piece.type === 'k');
       el.classList.toggle('sel', i === selected);
       el.classList.toggle('from', !!lastMove && i === lastMove.from);
@@ -190,10 +195,17 @@ export class BoardView {
 
       el.querySelector('.cw').textContent = w[i] ? String(w[i]) : '';
       el.querySelector('.cb').textContent = b[i] ? String(b[i]) : '';
-      // Only touch the piece markup when it actually changes — re-setting
-      // innerHTML on all 64 squares every frame would rebuild the SVGs for
-      // nothing and kill the transition.
-      const wantPiece = daylight && piece ? piece.type : '';
+      // Only touch the markup when it actually changes — re-setting innerHTML
+      // on all 64 squares every frame would rebuild the SVGs for nothing and
+      // kill the transition.
+      const wantMark = shadows && !pieces && piece ? piece.color + (piece.type === 'k' ? 'k' : '') : '';
+      const markEl = el.querySelector('.mark');
+      if (markEl.dataset.shown !== wantMark) {
+        markEl.innerHTML = wantMark ? markSvg(piece.color, piece.type === 'k') : '';
+        markEl.dataset.shown = wantMark;
+      }
+
+      const wantPiece = pieces && piece ? piece.type : '';
       const pieceEl = el.querySelector('.piece');
       if (pieceEl.dataset.shown !== wantPiece) {
         pieceEl.innerHTML = wantPiece ? pieceSvg(wantPiece) : '';
@@ -206,9 +218,9 @@ export class BoardView {
         'aria-label',
         piece
           ? `${sq}: ${piece.color === 'w' ? 'White' : 'Black'} ${PIECE_NAMES[piece.type]}.` +
-            (daylight ? '' : ` White control ${w[i]}, Black control ${b[i]}.`)
+            (shadows ? ` White control ${w[i]}, Black control ${b[i]}.` : '')
           : `${sq}: empty.` +
-            (daylight ? '' : ` White control ${w[i]}, Black control ${b[i]}.`)
+            (shadows ? ` White control ${w[i]}, Black control ${b[i]}.` : '')
       );
       el.setAttribute('aria-pressed', i === selected ? 'true' : 'false');
     }

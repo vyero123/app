@@ -26,6 +26,7 @@ const ORDER = [
   'js/influence.js',
   'js/colour.js',
   'js/pieces.js',
+  'js/marks.js',
   'js/board.js',
   'games/games.js',
   'js/playback.js',

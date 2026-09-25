@@ -118,41 +118,82 @@ If you want the exact numbers rather than the colour, tick **Show attacker
 counts** — White's count appears top-left of each square, Black's bottom-right.
 It's also how you'd sanity-check the map yourself.
 
-**Occupancy.** A square with a piece on it gets a glowing inset ring — **white
-for White, black for Black**, so you can always tell whose piece you're looking
-at. Each ring carries a thin contrasting keyline just outside it, because a
-white ring would disappear on a pale amber square and a black one would
-disappear on an unlit square. That's the only thing that leaks piece identity,
-and it leaks only *side*: a rook and a bishop are indistinguishable, and you
-can only tell them apart by the shadow they throw.
+**The wordmark is the control.** The two halves of *ShadowChess* are separate
+buttons, each toggling its own layer: **Shadow** turns the influence map on and
+off, **Chess** shows or hides the pieces. Each half dims and lightens in weight
+when its layer is off, and swaps its solid underline for a dotted one — state
+is never carried by colour alone. That gives four states, all of which work:
 
-**Daylight.** The **Shadows / Daylight** switch in the header turns the map off
-and shows the position the ordinary way — a wooden board with the pieces drawn
-on it — and swings the whole app from night theme to day. The "Shadow" half of
-the wordmark dims when it's on, since there are no shadows left to name. A
-selection survives the switch both ways, so you can find a piece in daylight,
-flip the shadows back on, and watch what it was doing. Keyboard: `D`.
-Deep-linkable as `?view=day`.
+| Shadow | Chess | |
+|---|---|---|
+| on | off | the influence map alone — what this app is for |
+| on | on | the position with its shadows laid over it |
+| off | on | an ordinary chessboard |
+| off | off | a bare board |
+
+The last one is allowed rather than blocked. It is the honest consequence of
+two independent switches, and it is funny rather than broken.
+
+Keyboard: `S` for shadows, `P` for pieces. `D` still works and flips both at
+once, as the old single switch did. All four states are deep-linkable as
+`?shadows=0|1&pieces=0|1`; the older `?view=day` is still honoured. A selection
+survives every state change in both directions.
+
+**Occupancy and side: an O and an X.** With the pieces hidden, an occupied
+square carries a symbol in the middle of it — **White is an O, Black is an X**.
+The side rides on *shape*, which is the one channel this app had left: hue
+already carries which side controls a square and lightness carries how many
+attackers, so putting the piece's side on either of those is what made every
+earlier attempt a compromise. Shape is also the most colour-blind-robust signal
+available, because O-versus-X is topology rather than colour. Both marks are
+drawn in one ink over a dark keyline, so legibility never depends on what the
+tint underneath is doing.
+
+The other reason for these shapes is measurable. A filled marker hides the
+influence on exactly the squares you most want to read, which would make White
+×1 and White ×5 the same picture. An O is mostly hollow and an X is mostly
+gaps, so the colour reads straight through. Measured on a loud amber square
+(`node tools/measure-tint.mjs`), the share of a square still showing its
+influence colour:
+
+| | tint still visible |
+|---|---|
+| nothing at all | 100% |
+| the old edge ring | 73.4% |
+| **X (Black)** | **73.4%** |
+| **O (White)** | **67.8%** |
+| a filled square chip | 57–59% |
+
+Moving occupancy into the middle of the square is also what frees the edge: the
+only thing left there is **selection**, in green. The middle says who is here,
+the edge says what you have picked.
+
+**When the pieces are on, the marks come off.** The O, the X and the king's
+ticks all disappear: the piece itself already says whose it is and which piece
+it is, and stacking two identity systems on a 42px square is noise rather than
+redundancy. Toggling the layer crossfades between them from a shared centre, so
+it reads as the same object coming into focus.
+
+The hybrid state — pieces over tints — is the one most likely to be illegible,
+so it is measured rather than assumed (`node tools/measure-contrast.mjs`).
+Across all 68 piece-over-background combinations the worst contrast is
+**4.20:1**, above the 3:1 WCAG threshold for a large graphical object. The case
+that nearly fails is exactly the predicted one: a White piece on a White ×5
+amber square manages only 2.64:1 on its fill — but its dark keyline gives
+6.59:1, which is the whole reason the keyline is there.
 
 **The king is a deliberate exception.** Shadow mode hides piece type — except
-for the kings, which carry a soft radial aura that breathes slowly in and out.
-This gives away information the premise otherwise withholds, and that is the
-point: the king's square is the one thing you need in order to orient at all,
-and without it every occupied square looks alike and the board is unreadable
-rather than mysterious. Both kings get one, warm for White and cool for Black,
-following the same side logic as everything else.
+for the kings, whose marks carry **four corner ticks**. This gives away
+information the premise otherwise withholds, and that is the point: the king's
+square is the one thing you need in order to orient at all, and without it
+every occupied square looks alike and the board is unreadable rather than
+mysterious. The mark also breathes slowly, but the ticks are what identify it —
+the motion is a grace note, and `prefers-reduced-motion` drops it with nothing
+lost. An earlier version used a full frame around the mark: unmistakable, and
+it cost 33.6%, two thirds of the tint on the square you look at most. The ticks
+say the same thing for a fifth of the ink (49.8%).
 
-It is built as an independent layer sitting under the occupancy ring and over
-the tint, so it does not belong to any particular piece treatment and will
-survive a change to the fill/outline system. It is a radial aura rather than
-another ring on purpose: occupancy and selection already speak at the *edge* of
-the square, so the king needed a different register — something radiating from
-the middle, where nothing else lives. Only `transform` and `opacity` animate,
-so it stays on the compositor and costs a phone nothing; there are no blur
-filters anywhere. Under `prefers-reduced-motion: reduce` the aura is placed
-rather than animated — still there, still readable, just not breathing.
-
-**Spotlight.** Tap any glowing square to isolate that piece: its own influence
+**Spotlight.** Tap any marked square to isolate that piece: its own influence
 lights up chartreuse while everything else dims to a fifth of its intensity.
 Tap again (or press Escape) to release. This is the quickest way to see what a
 single piece is actually doing — try the white bishop on e7 in the final
@@ -229,8 +270,8 @@ Deployment is Netlify from `main`, repo root, no build command, serving
 
 Next / previous / first / last, a scrubber to jump to any move, and autoplay
 with five speeds from 2.4s to 0.45s per move. Keyboard: `←` `→` to step,
-space to play/pause, `Home` / `End`, `Esc` to clear the spotlight, `D` for
-daylight.
+space to play/pause, `Home` / `End`, `Esc` to clear the spotlight, `S` for
+shadows, `P` for pieces.
 
 Transitions between positions ripple outwards from the square just moved to,
 with a small per-square delay, so a move reads as a disturbance propagating
@@ -253,12 +294,14 @@ index.html           entry point
 css/style.css
 js/influence.js      the attack-map engine — the heart of it
 js/colour.js         counts -> one colour per square
+js/marks.js          the O and X side marks, and the king's ticks
 js/board.js          DOM rendering and transitions
 js/playback.js       PGN -> timeline of influence states
 js/main.js           wiring
 games/games.js       bundled PGNs with provenance
 tests/               node test harness for the engine
-tools/               bundler and in-browser self-test (not deployed)
+tools/               bundler, self-test, and the measurement scripts
+design/              design comparison sheets (not part of the app)
 vendor/chess.js/     vendored chess.js 1.4.0
 ```
 

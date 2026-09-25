@@ -12,14 +12,20 @@
 <body>
 
 <header class="topbar">
-  <h1><span class="lg-shadow">Shadow</span><span class="lg-chess">Chess</span></h1>
+  <!-- The wordmark IS the control: each half toggles its own layer. -->
+  <h1 class="wordmark">
+    <button type="button" id="t-shadows" class="word w-shadow" aria-pressed="true"
+            aria-label="Shadows: showing the influence map. Activate to hide it."
+            title="Show or hide the influence map (S)">Shadow</button><button
+            type="button" id="t-pieces" class="word w-chess" aria-pressed="false"
+            aria-label="Pieces: hidden. Activate to show them."
+            title="Show or hide the pieces (P)">Chess</button>
+  </h1>
   <div class="topactions">
-    <button type="button" id="mode" class="mode" aria-pressed="true">
-      <span class="orb" aria-hidden="true"></span><span class="modelabel">Shadows</span>
-    </button>
     <button type="button" id="about-toggle" class="ghost iconbtn" aria-expanded="false" aria-controls="about" aria-label="What am I looking at?" title="What am I looking at?">?</button>
   </div>
 </header>
+<p class="statenote" id="statenote" aria-live="polite"></p>
 
 <section id="about" class="about" hidden>
   <p>The pieces are invisible. Every square is tinted by the <strong>influence</strong> falling on it — the squares each side currently attacks or defends.</p>
@@ -28,7 +34,7 @@
     <li><strong>Violet</strong> — both sides control it. The violet leans warm when White has more attackers, cool when Black does.</li>
     <li>The more pieces bearing on a square, the <strong>deeper</strong> the colour.</li>
     <li>A square with a piece on it gets a <strong>glowing ring</strong> — white for White's pieces, black for Black's. Which piece it is stays hidden. Tap one to spotlight just that piece's influence in <strong>green</strong>.</li>
-    <li>Stuck? Hit <strong>Shadows</strong> at the top to switch off the map and see the actual position underneath, in daylight.</li>
+    <li>The title is the control. Tap <strong>Shadow</strong> to turn the influence map on and off, and <strong>Chess</strong> to show or hide the pieces. Turn both on to see the position with its shadows laid over it. Keyboard: <kbd>S</kbd> and <kbd>P</kbd>.</li>
   </ul>
   <p class="fine">Pawns control their two forward diagonals only, never the square they push to. Sliding pieces stop at the first piece they meet — no x-ray. Defending your own piece counts as influence. <a href="README.md">Full definition &amp; sources</a>.</p>
 </section>

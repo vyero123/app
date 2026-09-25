@@ -29,7 +29,7 @@ import { pieceSvg } from '../js/pieces.js';
 import { GAMES } from '../games/games.js';
 // Mark geometry lives in one module, shared with tools/measure-tint.mjs, so the
 // comparison and the measurement can never describe different shapes.
-import { chipMark, oxMark } from './marks-export.mjs';
+import { chipMark, oxMark } from '../js/marks.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 

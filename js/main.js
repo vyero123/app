@@ -14,7 +14,13 @@ const board = new BoardView($('board'));
 let player = null;
 let selected = null;
 let currentGame = null;
-let daylight = false;
+
+/* Two independent layers, four states. Both on is the hybrid: the position
+   with its influence laid over it. Both off is a bare board — allowed, because
+   it is the honest consequence of two independent switches, and it is funny
+   rather than broken. */
+let shadows = true;
+let pieces = false;
 
 /* ---------- static chrome ---------- */
 
@@ -88,7 +94,8 @@ function render(state, opts = {}) {
       lastMove: state.from == null ? null : { from: state.from, to: state.to },
       selected,
       showCounts: $('counts').checked,
-      daylight,
+      shadows,
+      pieces,
       animate: !opts.instant,
     });
 
@@ -102,7 +109,7 @@ function render(state, opts = {}) {
       const p = state.influence.cells[selected];
       const names = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
       const who = `${p.color === 'w' ? 'White' : 'Black'} ${names[p.type]} on ${idxToSquare(selected)}`;
-      text += `  <em>${daylight ? 'selected' : 'spotlight'}: ${who}</em>`;
+      text += `  <em>${shadows ? 'spotlight' : 'selected'}: ${who}</em>`;
     }
     $('movetext').innerHTML = text;
 
@@ -180,22 +187,56 @@ $('flip').addEventListener('change', (e) => {
 
 $('gamepick').addEventListener('change', (e) => loadGame(e.target.value));
 
-function setDaylight(on) {
-  daylight = on;
-  document.body.classList.toggle('day', daylight);
-  const btn = $('mode');
-  btn.setAttribute('aria-pressed', String(!daylight));
-  btn.querySelector('.modelabel').textContent = daylight ? 'Daylight' : 'Shadows';
-  btn.title = daylight
-    ? 'Shadows are off — showing the real position. Tap to bring them back.'
-    : 'Showing the influence map. Tap to see the position underneath.';
+const STATE_NOTE = {
+  'shadows|pieces': 'Influence and pieces together — the position with its shadows laid over it.',
+  'shadows': 'Pieces hidden. Only the influence each side projects.',
+  'pieces': 'An ordinary chessboard, no influence map.',
+  '': 'A bare board. Both layers are off — turn one back on above.',
+};
+
+function applyState({ announce = true } = {}) {
+  document.body.classList.toggle('dark', shadows);
+  document.body.classList.toggle('day', !shadows);
+
+  const sBtn = $('t-shadows');
+  const pBtn = $('t-pieces');
+  sBtn.setAttribute('aria-pressed', String(shadows));
+  pBtn.setAttribute('aria-pressed', String(pieces));
+  sBtn.setAttribute(
+    'aria-label',
+    `Shadows: ${shadows ? 'showing the influence map. Activate to hide it.' : 'hidden. Activate to show the influence map.'}`
+  );
+  pBtn.setAttribute(
+    'aria-label',
+    `Pieces: ${pieces ? 'showing. Activate to hide them.' : 'hidden. Activate to show them.'}`
+  );
+
+  const key = [shadows && 'shadows', pieces && 'pieces'].filter(Boolean).join('|');
+  if (announce) $('statenote').textContent = STATE_NOTE[key];
+
+  // Attacker counts are a statement about influence; they mean nothing with
+  // the shadows off.
+  $('counts').disabled = !shadows;
+  document.querySelector('.counts-toggle').classList.toggle('off', !shadows);
+
   document
     .querySelector('meta[name="theme-color"]')
-    ?.setAttribute('content', daylight ? '#f4f1ea' : '#0a0c12');
+    ?.setAttribute('content', shadows ? '#0a0c12' : '#f4f1ea');
+
   if (player) player.goto(player.index, { force: true, instant: true });
+  syncUrl();
 }
 
-$('mode').addEventListener('click', () => setDaylight(!daylight));
+function syncUrl() {
+  const u = new URL(location.href);
+  u.searchParams.set('shadows', shadows ? '1' : '0');
+  u.searchParams.set('pieces', pieces ? '1' : '0');
+  u.searchParams.delete('view');
+  history.replaceState(null, '', u);
+}
+
+$('t-shadows').addEventListener('click', () => { shadows = !shadows; applyState(); });
+$('t-pieces').addEventListener('click', () => { pieces = !pieces; applyState(); });
 
 $('about-toggle').addEventListener('click', (e) => {
   const open = $('about').hidden;
@@ -220,8 +261,14 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Escape' && selected != null) {
     selected = null;
     player.goto(player.index, { force: true, instant: true });
+  } else if (e.key.toLowerCase() === 's') {
+    shadows = !shadows; applyState();
+  } else if (e.key.toLowerCase() === 'p') {
+    pieces = !pieces; applyState();
   } else if (e.key.toLowerCase() === 'd') {
-    setDaylight(!daylight);
+    // The old single switch. Kept working: it flipped between the influence
+    // map and the plain board, which is now both layers moving at once.
+    shadows = !shadows; pieces = !pieces; applyState();
   }
 });
 
@@ -233,4 +280,14 @@ paintLegend();
 paintGamePicker();
 $('speedlabel').textContent = `${(SPEEDS[2] / 1000).toFixed(1)}s`;
 loadGame(params.get('game') || DEFAULT_GAME_ID);
-setDaylight(params.get('view') === 'day');
+
+// ?shadows=0|1&pieces=0|1 addresses all four states. The older ?view=day is
+// still honoured and means the ordinary board.
+if (params.has('shadows') || params.has('pieces')) {
+  shadows = params.get('shadows') !== '0';
+  pieces = params.get('pieces') === '1';
+} else if (params.get('view') === 'day') {
+  shadows = false;
+  pieces = true;
+}
+applyState();

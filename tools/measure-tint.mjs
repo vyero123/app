@@ -2,7 +2,7 @@ import { Resvg } from '@resvg/resvg-js';
 import { PNG } from 'pngjs';
 // Re-import the mark builders by evaluating the generator's functions.
 const SQ = 42;
-const mod = await import('./marks-export.mjs');
+const mod = await import('../js/marks.js');
 const { chipMark, oxMark, ringMark } = mod;
 
 function pctTintVisible(markFn, side, king, bgHex) {
