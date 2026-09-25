@@ -13,15 +13,11 @@
 
 import { fileOf, rankOf, idxToSquare, FILES } from './influence.js';
 import { squareColour, dimmedColour, isolateColour } from './colour.js';
+import { pieceSvg } from './pieces.js';
 
 const PIECE_NAMES = {
   p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king',
 };
-
-/* Solid glyphs for both sides; White is drawn light with a dark keyline and
-   Black dark, rather than using the hollow ♔ set, which is thin and vanishes
-   on a light square at phone size. */
-const GLYPH = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚' };
 
 /** Classic board colours, used only in daylight mode. */
 const DAY_LIGHT = 'rgb(240 217 181)';
@@ -182,8 +178,15 @@ export class BoardView {
 
       el.querySelector('.cw').textContent = w[i] ? String(w[i]) : '';
       el.querySelector('.cb').textContent = b[i] ? String(b[i]) : '';
-      el.querySelector('.piece').textContent =
-        daylight && piece ? GLYPH[piece.type] : '';
+      // Only touch the piece markup when it actually changes — re-setting
+      // innerHTML on all 64 squares every frame would rebuild the SVGs for
+      // nothing and kill the transition.
+      const wantPiece = daylight && piece ? piece.type : '';
+      const pieceEl = el.querySelector('.piece');
+      if (pieceEl.dataset.shown !== wantPiece) {
+        pieceEl.innerHTML = wantPiece ? pieceSvg(wantPiece) : '';
+        pieceEl.dataset.shown = wantPiece;
+      }
 
       el.disabled = !piece;
       const sq = el.dataset.square;
