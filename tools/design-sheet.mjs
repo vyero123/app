@@ -203,12 +203,12 @@ p { margin: 0 0 10px; }
               inset 0 0 0 6px #f2ece0, 0 0 8px rgba(0,0,0,.35); }
 
 /* ---- Option C: constant-contrast silhouette on a side chip ---- */
-[data-opt="c"] .piece { inset: 14%; z-index: 1; }
+[data-opt="c"] .piece { inset: 11%; z-index: 1; }
 [data-opt="c"] .piece svg > g { stroke-width: 3; fill: #1a1712; stroke: #1a1712; }
 [data-opt="c"] .piece circle.eye { fill: #efe8da; stroke: none; }
 [data-opt="c"] .piece .cut { stroke: #efe8da; stroke-width: 4; }
 [data-opt="c"] .chip {
-  position: absolute; inset: 7%; border-radius: 50%;
+  position: absolute; inset: 4%; border-radius: 50%;
   box-shadow: 0 1px 2px rgba(0,0,0,.3);
 }
 [data-opt="c"][data-side="w"] .chip { background: #f6f1e4; border: 1.5px solid #6d5a3e; }
@@ -218,7 +218,8 @@ p { margin: 0 0 10px; }
 [data-opt="c"][data-side="b"] .piece .cut { stroke: #cfd8de; }
 /* In shadow mode the chip IS the ring. */
 [data-opt="c"] .glow { display: none; }
-.strip.dark [data-opt="c"] .chip { inset: 5%; border-radius: 6px; }
+.strip.dark [data-opt="c"] .chip { inset: 15%; border-radius: 50%; }
+.strip.dark [data-opt="c"] .piece { inset: 21%; }
 `;
 
 function section(opt) {
