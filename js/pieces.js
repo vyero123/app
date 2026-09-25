@@ -41,14 +41,19 @@ const SHAPES = {
     <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
     ${BASE}`,
 
+  /* Head in profile facing left: pricked ear at the top, forehead sloping down
+     to the muzzle at lower left, jaw tucked under, mane down the right into a
+     neck that spans the plinth. The first attempt at this read as a teardrop
+     blob at board size — a knight needs the muzzle to actually jut out. */
   n: `
-    <path d="M58 70c0-12 1-20 4-27 4-9 3-20-4-27l-4-5c-1.2-1.4-3.1-1.1-4 .8l-2.2 5.3c-9.4 1.2-19.2 8.2-24 18.2-2.3 4.8-3.2 9.8-3.2 13.7 0 4.2 4.2 6.2 7.2 3.2l6-6 4 3-6 9c-3 4.6-4.2 9.8-4.2 11.8z"/>
-    <circle class="eye" cx="43.5" cy="30.5" r="3.1"/>
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
     ${BASE}`,
 
   b: `
     <circle cx="50" cy="10.5" r="4.6"/>
     <path d="M50 16.5c8.6 8.4 14.4 16.8 14.4 24.6 0 8.2-6.4 14.2-14.4 14.2s-14.4-6-14.4-14.2c0-7.8 5.8-16.2 14.4-24.6z"/>
+    <path class="cut" d="M42 36.5L58 22"/>
     <path d="M36.5 50.5h27L60.8 64H39.2z"/>
     ${BASE}`,
 
@@ -62,7 +67,7 @@ const SHAPES = {
     ${BASE}`,
 
   k: `
-    <path d="M46.5 5h7v6.5H60v7h-6.5V29h-7v-8.5H40v-7h6.5z"/>
+    <path d="M45 3h10v7.5h8v9h-8V29H45v-9.5h-8v-9h8z"/>
     <path d="M50 26.5c-11 0-19.5 8.6-19.5 19.2 0 7 3.6 12.4 6.8 18.3h25.4c3.2-5.9 6.8-11.3 6.8-18.3 0-10.6-8.5-19.2-19.5-19.2z"/>
     ${BASE}`,
 };

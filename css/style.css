@@ -289,9 +289,13 @@ body.day .mode .orb {
 }
 .sq[data-side="w"] .piece svg > g { fill: #ffffff; stroke: #2b1d0d; }
 .sq[data-side="b"] .piece svg > g { fill: #16120c; stroke: #f5efe2; }
-/* The knight's eye is a hole in the silhouette: it takes the keyline colour. */
+/* Marks cut INTO the silhouette — the knight's eye, the bishop's mitre slit —
+   take the keyline colour so they read as incisions rather than shapes. */
 .sq[data-side="w"] .piece .eye { fill: #2b1d0d; stroke: none; }
 .sq[data-side="b"] .piece .eye { fill: #f5efe2; stroke: none; }
+.piece .cut { fill: none; stroke-width: 4.2; stroke-linecap: round; }
+.sq[data-side="w"] .piece .cut { stroke: #2b1d0d; }
+.sq[data-side="b"] .piece .cut { stroke: #f5efe2; }
 /* Selection still works in daylight, so you can pick a piece here and then
    switch the shadows back on to see what it was doing. */
 .daylight .sq.sel { box-shadow: inset 0 0 0 3px var(--green); }
