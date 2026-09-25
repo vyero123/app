@@ -18,6 +18,15 @@ const PIECE_NAMES = {
   p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king',
 };
 
+/* Solid glyphs for both sides; White is drawn light with a dark keyline and
+   Black dark, rather than using the hollow ♔ set, which is thin and vanishes
+   on a light square at phone size. */
+const GLYPH = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚' };
+
+/** Classic board colours, used only in daylight mode. */
+const DAY_LIGHT = 'rgb(240 217 181)';
+const DAY_DARK = 'rgb(181 136 99)';
+
 export class BoardView {
   /** @param {HTMLElement} root the element that will hold the 8x8 grid */
   constructor(root) {
@@ -50,9 +59,31 @@ export class BoardView {
         '<i class="cw"></i><i class="cb"></i>';
       el.appendChild(counts);
 
+      const piece = document.createElement('span');
+      piece.className = 'piece';
+      el.appendChild(piece);
+
       this.cells.push(el);
     }
     this.layout();
+    this.trackSquareSize();
+  }
+
+  /**
+   * Publish the current square size as a CSS variable so the piece glyphs can
+   * scale exactly with the board instead of guessing from viewport units.
+   */
+  trackSquareSize() {
+    const set = () => {
+      const w = this.root.getBoundingClientRect().width;
+      if (w) this.root.style.setProperty('--sq', `${w / 8}px`);
+    };
+    set();
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(set).observe(this.root);
+    } else {
+      window.addEventListener('resize', set);
+    }
   }
 
   /** Place cells in DOM order for the current orientation. */
@@ -89,19 +120,23 @@ export class BoardView {
    * @param {{from:number,to:number}|null} opts.lastMove
    * @param {number|null} opts.selected index of the piece being isolated
    * @param {boolean} opts.showCounts
+   * @param {boolean} opts.daylight  true = shadows off, real pieces shown
    * @param {boolean} opts.animate
    */
-  render({ influence, lastMove, selected, showCounts, animate = true }) {
+  render({ influence, lastMove, selected, showCounts, daylight = false, animate = true }) {
     const { w, b, cells, controlledBy } = influence;
     const origin = lastMove ? lastMove.to : 36; // e5-ish centre when no move yet
 
+    // In daylight the shadows are switched off entirely: no tint, no
+    // spotlight, no counts — just the position, drawn the ordinary way.
     const spotlight =
-      selected != null && controlledBy.has(selected)
+      !daylight && selected != null && controlledBy.has(selected)
         ? new Set(controlledBy.get(selected))
         : null;
 
+    this.root.classList.toggle('daylight', daylight);
     this.root.classList.toggle('isolating', !!spotlight);
-    this.root.classList.toggle('show-counts', !!showCounts);
+    this.root.classList.toggle('show-counts', !!showCounts && !daylight);
 
     for (let i = 0; i < 64; i++) {
       const el = this.cells[i];
@@ -119,7 +154,9 @@ export class BoardView {
         el.style.transitionDelay = '0ms';
       }
 
-      if (spotlight) {
+      if (daylight) {
+        el.style.backgroundColor = isLight ? DAY_LIGHT : DAY_DARK;
+      } else if (spotlight) {
         if (i === selected) {
           el.style.backgroundColor = isolateColour(isLight, 5);
         } else if (spotlight.has(i)) {
@@ -145,15 +182,18 @@ export class BoardView {
 
       el.querySelector('.cw').textContent = w[i] ? String(w[i]) : '';
       el.querySelector('.cb').textContent = b[i] ? String(b[i]) : '';
+      el.querySelector('.piece').textContent =
+        daylight && piece ? GLYPH[piece.type] : '';
 
       el.disabled = !piece;
       const sq = el.dataset.square;
       el.setAttribute(
         'aria-label',
         piece
-          ? `${sq}: ${piece.color === 'w' ? 'White' : 'Black'} ${PIECE_NAMES[piece.type]}. ` +
-            `White control ${w[i]}, Black control ${b[i]}.`
-          : `${sq}: empty. White control ${w[i]}, Black control ${b[i]}.`
+          ? `${sq}: ${piece.color === 'w' ? 'White' : 'Black'} ${PIECE_NAMES[piece.type]}.` +
+            (daylight ? '' : ` White control ${w[i]}, Black control ${b[i]}.`)
+          : `${sq}: empty.` +
+            (daylight ? '' : ` White control ${w[i]}, Black control ${b[i]}.`)
       );
       el.setAttribute('aria-pressed', i === selected ? 'true' : 'false');
     }

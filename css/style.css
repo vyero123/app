@@ -12,6 +12,32 @@
   --green: #a8e020;
   --radius: 10px;
   --gap: 12px;
+  --board-edge: #05070c;
+  --board-border: #262c3d;
+  --logo-shadow: #e8ecf5;
+  --logo-chess: #f0a81e;
+  --track: #2a3145;
+  --btn-face: #191e2c;
+}
+
+/* Daylight: shadows off, the position shown the ordinary way. The whole app
+   changes with it, and the "Shadow" half of the wordmark dims — there are no
+   shadows to name any more. */
+body.day {
+  --bg: #f4f1ea;
+  --panel: #ffffff;
+  --line: #ded7c9;
+  --ink: #1b1d22;
+  --ink-dim: #6d7380;
+  --amber: #b8770a;
+  --cyan: #0b7f96;
+  --violet: #7b3fa0;
+  --board-edge: #8a6a4a;
+  --board-border: #8a6a4a;
+  --logo-shadow: #c4beb2;
+  --logo-chess: #b8770a;
+  --track: #d7d0c2;
+  --btn-face: #f0ece2;
 }
 
 * { box-sizing: border-box; }
@@ -24,6 +50,7 @@ html, body {
   font: 15px/1.5 ui-sans-serif, -apple-system, "SF Pro Text", system-ui, sans-serif;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 420ms ease, color 420ms ease;
 }
 
 a { color: var(--cyan); }
@@ -49,8 +76,12 @@ main { padding-bottom: 32px; }
   font-size: 20px;
   letter-spacing: 0.02em;
   font-weight: 650;
+  white-space: nowrap;
 }
-.topbar h1 span { color: var(--amber); }
+.lg-shadow { color: var(--logo-shadow); transition: color 420ms ease; }
+.lg-chess { color: var(--logo-chess); transition: color 420ms ease; }
+
+.topactions { display: flex; align-items: center; gap: 6px; flex: none; }
 
 .ghost {
   background: none;
@@ -62,7 +93,48 @@ main { padding-bottom: 32px; }
   cursor: pointer;
   flex: none;
 }
-.ghost[aria-expanded="true"] { color: var(--ink); border-color: #3a445e; }
+.ghost[aria-expanded="true"] { color: var(--ink); border-color: var(--ink-dim); }
+.iconbtn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* The shadows/daylight switch. */
+.mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font: 600 12px/1 inherit;
+  cursor: pointer;
+  flex: none;
+  transition: background-color 420ms ease, border-color 420ms ease, color 420ms ease;
+}
+.mode .orb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  flex: none;
+  /* a waning crescent: the shadow */
+  background: var(--amber);
+  box-shadow: inset -4px 0 0 0 var(--panel);
+  transition: box-shadow 420ms ease, background-color 420ms ease;
+}
+body.day .mode .orb {
+  /* full sun */
+  background: #f0a81e;
+  box-shadow: 0 0 0 2px rgba(240, 168, 30, 0.3);
+}
+.mode:active { transform: scale(0.97); }
 
 .about {
   background: var(--panel);
@@ -93,12 +165,14 @@ main { padding-bottom: 32px; }
   aspect-ratio: 1;
   width: 100%;
   gap: 1px;
-  background: #05070c;
-  border: 1px solid #262c3d;
+  background: var(--board-edge);
+  border: 1px solid var(--board-border);
   border-radius: 8px;
   overflow: hidden;
   touch-action: manipulation;
+  transition: background-color 420ms ease, border-color 420ms ease;
 }
+#board.daylight { gap: 0; }
 
 .sq {
   position: relative;
@@ -185,6 +259,39 @@ main { padding-bottom: 32px; }
 .counts .cw { left: 2px; top: 2px; color: #ffe2a8; }
 .counts .cb { right: 2px; bottom: 2px; color: #b9ecff; }
 
+/* ---------- daylight: the actual pieces ---------- */
+.piece {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-size: calc(var(--sq, 40px) * 0.76);
+  line-height: 1;
+  /* The glyphs sit a touch high in most fonts. */
+  padding-bottom: calc(var(--sq, 40px) * 0.06);
+}
+.daylight .piece { display: flex; }
+.daylight .glow { opacity: 0 !important; box-shadow: none !important; }
+.daylight .sq.to::after,
+.daylight .sq.from::after { border-color: rgba(60, 40, 20, 0.55); }
+
+.daylight .sq[data-side="w"] .piece {
+  color: #ffffff;
+  text-shadow:
+    0 0 1px #2a1c0c, 1px 0 0 #2a1c0c, -1px 0 0 #2a1c0c,
+    0 1px 0 #2a1c0c, 0 -1px 0 #2a1c0c, 0 2px 3px rgba(0, 0, 0, 0.35);
+}
+.daylight .sq[data-side="b"] .piece {
+  color: #14110d;
+  text-shadow:
+    0 0 1px rgba(255, 255, 255, 0.5), 0 2px 3px rgba(0, 0, 0, 0.3);
+}
+/* Selection still works in daylight, so you can pick a piece here and then
+   switch the shadows back on to see what it was doing. */
+.daylight .sq.sel { box-shadow: inset 0 0 0 3px var(--green); }
+
 /* coordinates */
 .ranks, .files {
   display: grid;
@@ -240,12 +347,12 @@ input[type="range"] {
 input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 2px;
-  background: #2a3145;
+  background: var(--track);
 }
 input[type="range"]::-moz-range-track {
   height: 4px;
   border-radius: 2px;
-  background: #2a3145;
+  background: var(--track);
 }
 input[type="range"]::-webkit-slider-thumb {
   appearance: none;
@@ -254,14 +361,14 @@ input[type="range"]::-webkit-slider-thumb {
   margin-top: -8px;
   border-radius: 50%;
   background: var(--amber);
-  border: 2px solid #0a0c12;
+  border: 2px solid var(--bg);
 }
 input[type="range"]::-moz-range-thumb {
   width: 20px;
   height: 20px;
   border-radius: 50%;
   background: var(--amber);
-  border: 2px solid #0a0c12;
+  border: 2px solid var(--bg);
 }
 
 .controls {
@@ -280,7 +387,7 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
   touch-action: manipulation;
 }
-.ctrl:active { background: #1b2030; }
+.ctrl:active { filter: brightness(1.25); }
 .ctrl:disabled { opacity: 0.35; cursor: default; }
 .ctrl.play {
   background: var(--amber);
@@ -376,7 +483,7 @@ input[type="range"]::-moz-range-thumb {
 .moves button {
   width: 100%;
   border: 1px solid transparent;
-  background: #191e2c;
+  background: var(--btn-face);
   color: var(--ink);
   border-radius: 6px;
   padding: 6px 2px;
@@ -391,7 +498,7 @@ input[type="range"]::-moz-range-thumb {
   width: 100%;
   padding: 9px;
   border-radius: 8px;
-  background: #191e2c;
+  background: var(--btn-face);
   color: var(--ink);
   border: 1px solid var(--line);
   font-size: 14px;
@@ -406,6 +513,19 @@ footer {
   text-align: center;
   padding-bottom: max(18px, env(safe-area-inset-bottom));
 }
+
+/* A few spots that assume a dark backdrop and need saying twice. */
+body.day .ctrl.play { color: #fff; }
+body.day .ctrl.play.on { color: #fff; }
+body.day .moves button.on { color: #fff; }
+body.day .stat.d b { color: #9aa1af; }
+body.day footer { color: #8b8578; }
+body.day .gameinfo select { color: var(--ink); }
+body.day .counts .cw { color: #3b2a10; text-shadow: 0 0 3px #fff, 0 1px 2px #fff; }
+body.day .counts .cb { color: #10303b; text-shadow: 0 0 3px #fff, 0 1px 2px #fff; }
+body.day .chk input { accent-color: var(--amber); }
+/* The counts toggle means nothing with the shadows off. */
+body.day .chk.counts-toggle { opacity: 0.4; pointer-events: none; }
 
 @media (min-width: 620px) {
   .board-col { max-width: none; }

@@ -12,8 +12,13 @@
 <body>
 
 <header class="topbar">
-  <h1>Shadow<span>Chess</span></h1>
-  <button type="button" id="about-toggle" class="ghost" aria-expanded="false" aria-controls="about">What am I looking at?</button>
+  <h1><span class="lg-shadow">Shadow</span><span class="lg-chess">Chess</span></h1>
+  <div class="topactions">
+    <button type="button" id="mode" class="mode" aria-pressed="true">
+      <span class="orb" aria-hidden="true"></span><span class="modelabel">Shadows</span>
+    </button>
+    <button type="button" id="about-toggle" class="ghost iconbtn" aria-expanded="false" aria-controls="about" aria-label="What am I looking at?" title="What am I looking at?">?</button>
+  </div>
 </header>
 
 <section id="about" class="about" hidden>
@@ -23,6 +28,7 @@
     <li><strong>Violet</strong> — both sides control it. The violet leans warm when White has more attackers, cool when Black does.</li>
     <li>The more pieces bearing on a square, the <strong>deeper</strong> the colour.</li>
     <li>A square with a piece on it gets a <strong>glowing ring</strong> — white for White's pieces, black for Black's. Which piece it is stays hidden. Tap one to spotlight just that piece's influence in <strong>green</strong>.</li>
+    <li>Stuck? Hit <strong>Shadows</strong> at the top to switch off the map and see the actual position underneath, in daylight.</li>
   </ul>
   <p class="fine">Pawns control their two forward diagonals only, never the square they push to. Sliding pieces stop at the first piece they meet — no x-ray. Defending your own piece counts as influence. <a href="README.md">Full definition &amp; sources</a>.</p>
 </section>
@@ -58,7 +64,7 @@
   </div>
 
   <div class="row toggles">
-    <label class="chk"><input type="checkbox" id="counts"> Show attacker counts</label>
+    <label class="chk counts-toggle"><input type="checkbox" id="counts"> Show attacker counts</label>
     <label class="chk"><input type="checkbox" id="flip"> Black's view</label>
   </div>
 

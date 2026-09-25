@@ -14,6 +14,7 @@ const board = new BoardView($('board'));
 let player = null;
 let selected = null;
 let currentGame = null;
+let daylight = false;
 
 /* ---------- static chrome ---------- */
 
@@ -87,6 +88,7 @@ function render(state, opts = {}) {
       lastMove: state.from == null ? null : { from: state.from, to: state.to },
       selected,
       showCounts: $('counts').checked,
+      daylight,
       animate: !opts.instant,
     });
 
@@ -99,7 +101,8 @@ function render(state, opts = {}) {
     if (selected != null) {
       const p = state.influence.cells[selected];
       const names = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
-      text += `  <em>spotlight: ${p.color === 'w' ? 'White' : 'Black'} ${names[p.type]} on ${idxToSquare(selected)}</em>`;
+      const who = `${p.color === 'w' ? 'White' : 'Black'} ${names[p.type]} on ${idxToSquare(selected)}`;
+      text += `  <em>${daylight ? 'selected' : 'spotlight'}: ${who}</em>`;
     }
     $('movetext').innerHTML = text;
 
@@ -177,6 +180,23 @@ $('flip').addEventListener('change', (e) => {
 
 $('gamepick').addEventListener('change', (e) => loadGame(e.target.value));
 
+function setDaylight(on) {
+  daylight = on;
+  document.body.classList.toggle('day', daylight);
+  const btn = $('mode');
+  btn.setAttribute('aria-pressed', String(!daylight));
+  btn.querySelector('.modelabel').textContent = daylight ? 'Daylight' : 'Shadows';
+  btn.title = daylight
+    ? 'Shadows are off — showing the real position. Tap to bring them back.'
+    : 'Showing the influence map. Tap to see the position underneath.';
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', daylight ? '#f4f1ea' : '#0a0c12');
+  if (player) player.goto(player.index, { force: true, instant: true });
+}
+
+$('mode').addEventListener('click', () => setDaylight(!daylight));
+
 $('about-toggle').addEventListener('click', (e) => {
   const open = $('about').hidden;
   $('about').hidden = !open;
@@ -200,13 +220,17 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Escape' && selected != null) {
     selected = null;
     player.goto(player.index, { force: true, instant: true });
+  } else if (e.key.toLowerCase() === 'd') {
+    setDaylight(!daylight);
   }
 });
 
 /* ---------- go ---------- */
 
+const params = new URLSearchParams(location.search);
 paintCoords();
 paintLegend();
 paintGamePicker();
 $('speedlabel').textContent = `${(SPEEDS[2] / 1000).toFixed(1)}s`;
-loadGame(new URLSearchParams(location.search).get('game') || DEFAULT_GAME_ID);
+loadGame(params.get('game') || DEFAULT_GAME_ID);
+setDaylight(params.get('view') === 'day');

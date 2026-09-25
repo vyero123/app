@@ -137,6 +137,54 @@
   document.getElementById('scrub').dispatchEvent(new Event('input'));
   ok('scrubbing jumps to move 20', player.index === 20, `index ${player.index}`);
 
+  // --- 5b. daylight mode ----------------------------------------------------
+  {
+    const GLYPH = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚' };
+    const boardEl = document.getElementById('board');
+    const mode = document.getElementById('mode');
+
+    player.goto(total - 1, { force: true, instant: true });
+    mode.click();
+    ok('daylight: body carries .day', document.body.classList.contains('day'));
+    ok('daylight: board carries .daylight', boardEl.classList.contains('daylight'));
+    ok('daylight: button label reads Daylight',
+       mode.querySelector('.modelabel').textContent === 'Daylight');
+    ok('daylight: button aria-pressed is false', mode.getAttribute('aria-pressed') === 'false');
+
+    const st = player.states[total - 1];
+    let glyphErrors = 0, tinted = 0;
+    for (let i = 0; i < 64; i++) {
+      const el = document.querySelector(`.sq[data-idx="${i}"]`);
+      const piece = st.influence.cells[i];
+      const want = piece ? GLYPH[piece.type] : '';
+      if (el.querySelector('.piece').textContent !== want) glyphErrors++;
+      // Every square must be one of the two plain board colours — no influence
+      // tint may leak through in daylight.
+      const c = norm(bg(el));
+      if (c !== norm('rgb(240 217 181)') && c !== norm('rgb(181 136 99)')) tinted++;
+    }
+    ok('daylight: every piece drawn with the right glyph', glyphErrors === 0, `${glyphErrors} wrong`);
+    ok('daylight: no influence tint leaks onto any square', tinted === 0, `${tinted} tinted`);
+    ok('daylight: the mated king is visible on d8',
+       sqEl('d8').querySelector('.piece').textContent === '♚');
+    ok('daylight: d8 is marked as Black', sqEl('d8').dataset.side === 'b');
+    ok('daylight: the mating bishop on e7 is marked as White', sqEl('e7').dataset.side === 'w');
+    ok('daylight: counts overlay is suppressed', !boardEl.classList.contains('show-counts'));
+
+    // Selecting in daylight should survive the switch back to shadows.
+    sqEl('e7').click();
+    ok('daylight: selection works', sqEl('e7').classList.contains('sel'));
+    mode.click();
+    ok('back to shadows: body .day removed', !document.body.classList.contains('day'));
+    ok('back to shadows: label reads Shadows',
+       mode.querySelector('.modelabel').textContent === 'Shadows');
+    ok('back to shadows: the daylight selection became a spotlight',
+       boardEl.classList.contains('isolating'));
+    ok('back to shadows: glyphs are cleared',
+       sqEl('e7').querySelector('.piece').textContent === '');
+    sqEl('e7').click();
+  }
+
   // --- 6. layout at 375px ---------------------------------------------------
   // Skipped under a DOM shim with no layout engine (jsdom); it runs for real
   // in a browser, where getBoundingClientRect actually measures something.
