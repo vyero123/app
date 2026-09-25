@@ -283,7 +283,6 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 700;
 }
 .ctrl.play.on { background: var(--violet); border-color: var(--violet); color: #fff; }
-#prev { transform: scaleX(-1); }
 
 .row {
   display: flex;

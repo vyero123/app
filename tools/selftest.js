@@ -28,6 +28,15 @@
   const { player } = window.__shadowChess;
   const total = player.states.length;
 
+  // Transitions must be off while we read computed colours: in a real browser
+  // getComputedStyle returns the *interpolated* value mid-transition, so every
+  // square would compare unequal for ~420ms after each goto(). (jsdom has no
+  // transitions, so this only bites in a real browser — which is exactly why
+  // it has to be checked in one.)
+  const freeze = document.createElement('style');
+  freeze.textContent = '.sq, .glow { transition: none !important; }';
+  document.head.appendChild(freeze);
+
   // --- 1. rendering agrees with the model at every position ------------------
   let compared = 0;
   for (let ply = 0; ply < total; ply++) {
@@ -64,6 +73,7 @@
     f7: [0, 0],   // nobody — the mate works without touching f7
     a1: [0, 0],   // the black queen sits on a square nothing controls
     f6: [3, 0],   // white Be7 + e5 pawn + Nd5 all bear on the knight; black: none
+    c7: [1, 2],   // white Nd5; black Kd8 + Na6 (Bc8 does NOT — c8-c7 isn't a diagonal)
   };
   for (const [sq, [w, b]] of Object.entries(HAND)) {
     const i = squareToIdx(sq);
@@ -150,6 +160,7 @@
   }
 
   player.goto(0, { force: true, instant: true });
+  freeze.remove();
 
   console.log(`SELFTEST ${fail === 0 ? 'PASS' : 'FAIL'}: ${pass} passed, ${fail} failed`);
   for (const l of log) console.error(l);

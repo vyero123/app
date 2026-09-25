@@ -72,11 +72,15 @@ node tests/influence.test.mjs          # engine: 60 assertions
 
 npm i jsdom
 node tools/bundle.mjs --selftest
-node tools/run-selftest.mjs            # rendering: 35 assertions
+node tools/run-selftest.mjs            # rendering and interaction
 ```
 
 The layout assertions in the self-test are skipped under jsdom (no layout
-engine) and run only in a real browser.
+engine) and run only in a real browser. One trap worth knowing about if you
+extend these: in a real browser `getComputedStyle` returns the *interpolated*
+colour while a transition is running, so the self-test disables transitions
+before comparing anything. Without that, every square mismatches for the
+420ms after each position change and the results are meaningless noise.
 
 ---
 
