@@ -45,6 +45,13 @@ export class BoardView {
       el.dataset.light = isLight ? '1' : '0';
       el.tabIndex = -1;
 
+      // The king's aura sits UNDER the ring, so it never blurs the ring's
+      // edge. It is its own layer rather than part of any piece treatment,
+      // so it survives whichever fill/outline system we settle on.
+      const aura = document.createElement('span');
+      aura.className = 'aura';
+      el.appendChild(aura);
+
       const glow = document.createElement('span');
       glow.className = 'glow';
       el.appendChild(glow);
@@ -165,6 +172,9 @@ export class BoardView {
       }
 
       el.classList.toggle('occupied', !!piece);
+      // Deliberate exception to the shadow premise: the king is the one piece
+      // you need in order to orient at all, so it is allowed to show itself.
+      el.classList.toggle('king', !!piece && piece.type === 'k');
       el.classList.toggle('sel', i === selected);
       el.classList.toggle('from', !!lastMove && i === lastMove.from);
       el.classList.toggle('to', !!lastMove && i === lastMove.to);

@@ -134,6 +134,24 @@ selection survives the switch both ways, so you can find a piece in daylight,
 flip the shadows back on, and watch what it was doing. Keyboard: `D`.
 Deep-linkable as `?view=day`.
 
+**The king is a deliberate exception.** Shadow mode hides piece type — except
+for the kings, which carry a soft radial aura that breathes slowly in and out.
+This gives away information the premise otherwise withholds, and that is the
+point: the king's square is the one thing you need in order to orient at all,
+and without it every occupied square looks alike and the board is unreadable
+rather than mysterious. Both kings get one, warm for White and cool for Black,
+following the same side logic as everything else.
+
+It is built as an independent layer sitting under the occupancy ring and over
+the tint, so it does not belong to any particular piece treatment and will
+survive a change to the fill/outline system. It is a radial aura rather than
+another ring on purpose: occupancy and selection already speak at the *edge* of
+the square, so the king needed a different register — something radiating from
+the middle, where nothing else lives. Only `transform` and `opacity` animate,
+so it stays on the compositor and costs a phone nothing; there are no blur
+filters anywhere. Under `prefers-reduced-motion: reduce` the aura is placed
+rather than animated — still there, still readable, just not breathing.
+
 **Spotlight.** Tap any glowing square to isolate that piece: its own influence
 lights up chartreuse while everything else dims to a fifth of its intensity.
 Tap again (or press Escape) to release. This is the quickest way to see what a

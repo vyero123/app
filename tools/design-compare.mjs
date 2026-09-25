@@ -43,10 +43,43 @@ const sy = (r) => (7 - r) * (SQ + GAP);
    in one board: a Black piece on a square nobody controls, White pieces on
    loud amber squares, and a spread of contested squares including the mated
    king's own square.                                                        */
-function position() {
+function allStates() {
   const c = new Chess();
   c.loadPgn(GAMES.find((g) => g.id === 'immortal-1851').pgn);
-  return computeInfluence(c.board());
+  const moves = c.history();
+  const replay = new Chess();
+  const out = [{ ply: 0, san: null, inf: computeInfluence(replay.board()) }];
+  moves.forEach((san, i) => {
+    replay.move(san);
+    out.push({ ply: i + 1, san, inf: computeInfluence(replay.board()) });
+  });
+  return out;
+}
+
+/**
+ * Score a position by how well it exercises the three cases that separate the
+ * options. A position only qualifies if it contains all three with a PIECE on
+ * the square — an empty contested square shows nothing about a piece
+ * treatment, and the first position I picked had a most-contested occupied
+ * square of only 2-1, which is not a stress test of anything.
+ */
+function stressOf(inf) {
+  let dead = null, amber = null, contested = null;
+  for (let i = 0; i < 64; i++) {
+    const p = inf.cells[i];
+    if (!p) continue;
+    const w = inf.w[i], b = inf.b[i];
+    if (p.color === 'b' && w === 0 && b === 0 && !dead)
+      dead = { idx: i, why: 'Black piece, nobody controls the square' };
+    if (p.color === 'w' && b === 0 && w >= 3 && (!amber || w > inf.w[amber.idx]))
+      amber = { idx: i, why: `White piece on White x${w} amber` };
+    if (w > 0 && b > 0 && (!contested || w + b > inf.w[contested.idx] + inf.b[contested.idx]))
+      contested = { idx: i, why: `Contested ${w}-${b}` };
+  }
+  if (!dead || !amber || !contested) return null;
+  const cTot = inf.w[contested.idx] + inf.b[contested.idx];
+  if (cTot < 5) return null; // not "heavily" contested
+  return { picks: [dead, amber, contested], score: inf.w[amber.idx] * 2 + cTot * 3 };
 }
 
 /* ── piece shapes ──────────────────────────────────────────────────────────
@@ -92,6 +125,31 @@ const rect = (f, r, inset, sw, stroke, rx) => {
 const disc = (f, r, inset, fill, stroke) => {
   const rr = SQ * (0.5 - inset);
   return `<circle cx="${(sx(f) + SQ / 2).toFixed(2)}" cy="${(sy(r) + SQ / 2).toFixed(2)}" r="${rr.toFixed(2)}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
+};
+
+/* ── the king's aura ───────────────────────────────────────────────────────
+   An independent layer that sits under the ring and over the tint, so it
+   works with whichever treatment is chosen. Rendered statically here, which
+   is exactly what a reduced-motion browser sees. */
+const AURA_DEFS = `<defs>
+<radialGradient id="auraW" cx="50%" cy="50%" r="50%">
+  <stop offset="0%" stop-color="#fff6e0" stop-opacity=".58"/>
+  <stop offset="34%" stop-color="#ffe8aa" stop-opacity=".34"/>
+  <stop offset="54%" stop-color="#ffd678" stop-opacity=".16"/>
+  <stop offset="72%" stop-color="#ffd678" stop-opacity="0"/>
+</radialGradient>
+<radialGradient id="auraB" cx="50%" cy="50%" r="50%">
+  <stop offset="0%" stop-color="#02060e" stop-opacity=".30"/>
+  <stop offset="26%" stop-color="#02060e" stop-opacity=".24"/>
+  <stop offset="50%" stop-color="#a8d2ff" stop-opacity=".42"/>
+  <stop offset="63%" stop-color="#a8d2ff" stop-opacity=".16"/>
+  <stop offset="78%" stop-color="#a8d2ff" stop-opacity="0"/>
+</radialGradient>
+</defs>`;
+
+const aura = (f, r, side) => {
+  const rr = SQ * 0.62; // inset -12%, i.e. it spills past the square
+  return `<circle cx="${(sx(f) + SQ / 2).toFixed(2)}" cy="${(sy(r) + SQ / 2).toFixed(2)}" r="${rr.toFixed(2)}" fill="url(#aura${side === 'w' ? 'W' : 'B'})"/>`;
 };
 
 /* ── the three treatments ─────────────────────────────────────────────────
@@ -153,7 +211,7 @@ const OPTIONS = {
 function board(id, mode, inf) {
   const o = OPTIONS[id];
   const dark = mode === 'shadow';
-  let out = `<rect width="${BOARD}" height="${BOARD}" rx="7" fill="${dark ? EDGE_DARK : EDGE_DAY}"/>`;
+  let out = AURA_DEFS + `<rect width="${BOARD}" height="${BOARD}" rx="7" fill="${dark ? EDGE_DARK : EDGE_DAY}"/>`;
 
   for (let i = 0; i < 64; i++) {
     const f = fileOf(i);
@@ -163,6 +221,15 @@ function board(id, mode, inf) {
       ? squareColour(inf.w[i], inf.b[i], isLight)
       : isLight ? DAY_LIGHT : DAY_DARK;
     out += `<rect x="${sx(f)}" y="${sy(r)}" width="${SQ}" height="${SQ}" fill="${fill.replace(/ /g, ',')}"/>`;
+  }
+
+  // Auras first, as their own pass: they spill past their square and must sit
+  // under every ring on the board, not just their own.
+  if (dark) {
+    for (let i = 0; i < 64; i++) {
+      const p = inf.cells[i];
+      if (p && p.type === 'k') out += aura(fileOf(i), rankOf(i), p.color);
+    }
   }
 
   for (let i = 0; i < 64; i++) {
@@ -213,28 +280,21 @@ function stressTiles(id, inf, picks) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${SQ * 2 + 8}" viewBox="0 0 ${w} ${SQ * 2 + 8}">${out}</svg>`;
 }
 
-/* ── pick the stress squares from the real position ───────────────────────── */
-function pickStress(inf) {
-  let blackOnDead = null, whiteOnAmber = null, contested = null;
-  for (let i = 0; i < 64; i++) {
-    const p = inf.cells[i];
-    if (!p) continue;
-    const w = inf.w[i], b = inf.b[i];
-    if (p.color === 'b' && w === 0 && b === 0 && !blackOnDead)
-      blackOnDead = { idx: i, why: 'Black piece, nobody controls the square' };
-    if (p.color === 'w' && b === 0 && w >= 2 && (!whiteOnAmber || w > inf.w[whiteOnAmber.idx]))
-      whiteOnAmber = { idx: i, why: `White piece on White ×${w} amber` };
-    if (w > 0 && b > 0 && (!contested || w + b > inf.w[contested.idx] + inf.b[contested.idx]))
-      contested = { idx: i, why: `Contested ${w}–${b}` };
-  }
-  const picks = [blackOnDead, whiteOnAmber, contested].filter(Boolean);
-  if (picks.length < 3) throw new Error('position does not contain all three stress cases');
-  return picks;
-}
-
 /* ── build ────────────────────────────────────────────────────────────────── */
-const inf = position();
-const picks = pickStress(inf);
+const states = allStates();
+let best = null;
+for (const st of states) {
+  const sc = stressOf(st.inf);
+  if (sc && (!best || sc.score > best.score)) best = { ...sc, ...st };
+}
+if (!best) throw new Error('no position in the game exercises all three cases');
+const inf = best.inf;
+const picks = best.picks;
+const moveLabel = best.ply === 0
+  ? 'the starting position'
+  : `move ${Math.floor((best.ply - 1) / 2) + 1}${best.ply % 2 ? '.' : '...'}${best.san}` +
+    ` (ply ${best.ply} of ${states.length - 1})`;
+console.log('chosen position:', moveLabel, '| stress:', picks.map(p => idxToSquare(p.idx) + ' ' + p.why).join(' | '));
 const IDS = ['a', 'b', 'c'];
 
 mkdirSync(join(root, 'design'), { recursive: true });
@@ -282,7 +342,7 @@ hr { border: 0; border-top: 1px solid #ddd8cc; margin: 26px 0 0; }
 between the three is the piece treatment. Squares are 42px, which is what they actually
 measure on a 375px phone. All three look fine at twice this size, which is why they are
 not shown at twice this size.</p>
-<p class="lede">The position is the Immortal Game after 23.Be7#. Stress cases in it:
+<p class="lede">The position is the Immortal Game at ${moveLabel} — chosen automatically as the position in the game that best exercises all three stress cases. Stress cases in it:
 ${picksText}.</p>
 
 ${IDS.map((id) => `
@@ -344,3 +404,85 @@ for (const id of IDS) {
   made.push(png(assets[id].stress, `${id}-stress.png`, 3));
 }
 console.log(made.join('\n'));
+
+/* ── composite cards ───────────────────────────────────────────────────────
+   One PNG per option, 375px wide — the phone's own width — with the two
+   boards and the stress row stacked and labelled, so the whole comparison can
+   be sent as images without opening a page. Plus one tall PNG with all three
+   for straight A-against-B-against-C reading.                               */
+
+const PAGE_W = 375;
+const PAD = 16;
+const inner = (svg) => svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
+
+function wrap(text, max) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    if ((line + ' ' + w).trim().length > max) { lines.push(line.trim()); line = w; }
+    else line += ' ' + w;
+  }
+  if (line.trim()) lines.push(line.trim());
+  return lines;
+}
+
+const T = (x, y, s, size, weight, fill, anchor = 'start') =>
+  `<text x="${x}" y="${y}" font-family="Lato, DejaVu Sans, sans-serif" font-size="${size}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}">${s.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>`;
+
+const LABEL = (x, y, s) => T(x, y, s.toUpperCase(), 10, 700, '#6c7280');
+
+function card(id) {
+  const o = OPTIONS[id];
+  let y = 0;
+  let out = '';
+  y += 22;
+  out += T(PAD, y, o.name, 17, 700, '#1b1d22');
+  y += 8;
+  for (const ln of wrap(o.line, 52)) { y += 15; out += T(PAD, y, ln, 12.5, 400, '#4a5059'); }
+  y += 20;
+  out += LABEL(PAD, y, 'Shadow mode');
+  y += 7;
+  out += `<svg x="${PAD}" y="${y}" width="${BOARD}" height="${BOARD}" viewBox="0 0 ${BOARD} ${BOARD}">${inner(assets[id].shadow)}</svg>`;
+  y += BOARD + 20;
+  out += LABEL(PAD, y, 'Daylight');
+  y += 7;
+  out += `<svg x="${PAD}" y="${y}" width="${BOARD}" height="${BOARD}" viewBox="0 0 ${BOARD} ${BOARD}">${inner(assets[id].day)}</svg>`;
+  y += BOARD + 20;
+  out += LABEL(PAD, y, 'The three squares that decide it');
+  y += 7;
+  const sw = picks.length * (SQ + 10) - 10;
+  const sh = SQ * 2 + 8;
+  out += `<svg x="${PAD}" y="${y}" width="${sw}" height="${sh}" viewBox="0 0 ${sw} ${sh}">${inner(assets[id].stress)}</svg>`;
+  picks.forEach((p, n) => {
+    out += T(PAD + n * (SQ + 10) + SQ / 2, y + sh + 12, idxToSquare(p.idx), 10, 700, '#4a5059', 'middle');
+  });
+  y += sh + 22;
+  return { markup: out, height: y + 10 };
+}
+
+const cards = IDS.map((id) => ({ id, ...card(id) }));
+
+for (const c of cards) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE_W}" height="${c.height}" viewBox="0 0 ${PAGE_W} ${c.height}"><rect width="${PAGE_W}" height="${c.height}" fill="#f5f3ee"/>${c.markup}</svg>`;
+  console.log(png(svg, `compare-${c.id.toUpperCase()}.png`, 2));
+}
+
+{
+  let y = 0;
+  let out = '';
+  y += 26;
+  out += T(PAD, y, 'Three ways to tell the sides apart', 19, 700, '#1b1d22');
+  for (const ln of wrap(
+    `Same position, same influence state, same size. Squares are 42px — what they measure on a 375px phone. Position: the Immortal Game at ${moveLabel.replace(/ \(ply.*/, '')}, chosen as the position that best exercises all three stress cases.`,
+    54
+  )) { y += 16; out += T(PAD, y, ln, 12.5, 400, '#4a5059'); }
+  y += 8;
+  for (const c of cards) {
+    out += `<g transform="translate(0 ${y})">${c.markup}</g>`;
+    y += c.height;
+    out += `<line x1="${PAD}" y1="${y - 4}" x2="${PAGE_W - PAD}" y2="${y - 4}" stroke="#ddd8cc"/>`;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE_W}" height="${y + 10}" viewBox="0 0 ${PAGE_W} ${y + 10}"><rect width="${PAGE_W}" height="${y + 10}" fill="#f5f3ee"/>${out}</svg>`;
+  console.log(png(svg, 'compare-ALL.png', 2));
+}

@@ -137,6 +137,39 @@
   document.getElementById('scrub').dispatchEvent(new Event('input'));
   ok('scrubbing jumps to move 20', player.index === 20, `index ${player.index}`);
 
+  // --- 5a. the king's aura --------------------------------------------------
+  {
+    player.goto(total - 1, { force: true, instant: true });
+    const st = player.states[total - 1];
+    let kings = 0, marked = 0, wrong = 0;
+    for (let i = 0; i < 64; i++) {
+      const el = document.querySelector(`.sq[data-idx="${i}"]`);
+      const p = st.influence.cells[i];
+      const isKing = !!p && p.type === 'k';
+      if (isKing) kings++;
+      if (el.classList.contains('king')) {
+        marked++;
+        if (!isKing) wrong++;
+      } else if (isKing) wrong++;
+      if (!el.querySelector('.aura')) wrong++;
+    }
+    // Black's king is mated; White's is on e2. Both are still on the board.
+    ok('aura: both kings present', kings === 2, `${kings}`);
+    ok('aura: exactly the kings are marked', marked === 2 && wrong === 0,
+       `marked ${marked}, wrong ${wrong}`);
+    ok('aura: every square carries an aura layer',
+       document.querySelectorAll('.sq .aura').length === 64);
+    ok('aura: the layer sits under the ring, not over it',
+       document.querySelector('.sq .aura').compareDocumentPosition(
+         document.querySelector('.sq .glow')
+       ) & Node.DOCUMENT_POSITION_FOLLOWING);
+    // It must not leak into daylight, where the piece is drawn anyway.
+    document.getElementById('mode').click();
+    ok('aura: hidden in daylight',
+       getComputedStyle(document.querySelector('.sq.king .aura')).display === 'none');
+    document.getElementById('mode').click();
+  }
+
   // --- 5b. daylight mode ----------------------------------------------------
   {
     const boardEl = document.getElementById('board');
