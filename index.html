@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0c12">
+<meta name="description" content="Shadow Chess — a chess visualiser where you never see the pieces, only the influence they cast.">
+<title>Shadow Chess</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230a0c12'/><rect x='4' y='4' width='12' height='12' fill='%23f0a81e'/><rect x='16' y='16' width='12' height='12' fill='%2312c8e8'/><rect x='16' y='4' width='12' height='12' fill='%23b15fd8'/></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Shadow<span>Chess</span></h1>
+  <button type="button" id="about-toggle" class="ghost" aria-expanded="false" aria-controls="about">What am I looking at?</button>
+</header>
+
+<section id="about" class="about" hidden>
+  <p>The pieces are invisible. Every square is tinted by the <strong>influence</strong> falling on it — the squares each side currently attacks or defends.</p>
+  <ul>
+    <li><strong>Amber</strong> — only White controls it. <strong>Cyan</strong> — only Black.</li>
+    <li><strong>Violet</strong> — both sides control it. The violet leans warm when White has more attackers, cool when Black does.</li>
+    <li>The more pieces bearing on a square, the <strong>deeper</strong> the colour.</li>
+    <li>A square with a piece standing on it gets a <strong>glowing edge</strong>. Tap one to spotlight just that piece's influence in <strong>green</strong>.</li>
+  </ul>
+  <p class="fine">Pawns control their two forward diagonals only, never the square they push to. Sliding pieces stop at the first piece they meet — no x-ray. Defending your own piece counts as influence. <a href="README.md">Full definition &amp; sources</a>.</p>
+</section>
+
+<main>
+  <div class="board-wrap">
+    <div class="ranks" id="ranks" aria-hidden="true"></div>
+    <div class="board-col">
+      <div id="board" role="grid" aria-label="Influence map"></div>
+      <div class="files" id="files" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <p class="movetext" id="movetext" aria-live="polite">Starting position</p>
+
+  <div class="scrub">
+    <input type="range" id="scrub" min="0" max="0" value="0" step="1" aria-label="Jump to move">
+    <div class="ply" id="plylabel">0 / 0</div>
+  </div>
+
+  <div class="controls">
+    <button type="button" id="first" class="ctrl" aria-label="First position">⏮</button>
+    <button type="button" id="prev" class="ctrl" aria-label="Previous move">◀</button>
+    <button type="button" id="play" class="ctrl play" aria-label="Play">▶</button>
+    <button type="button" id="next" class="ctrl" aria-label="Next move">▶</button>
+    <button type="button" id="last" class="ctrl" aria-label="Final position">⏭</button>
+  </div>
+
+  <div class="row speed">
+    <label for="speed">Speed</label>
+    <input type="range" id="speed" min="0" max="4" step="1" value="2" aria-label="Playback speed">
+    <span id="speedlabel" class="mono">1.2s</span>
+  </div>
+
+  <div class="row toggles">
+    <label class="chk"><input type="checkbox" id="counts"> Show attacker counts</label>
+    <label class="chk"><input type="checkbox" id="flip"> Black's view</label>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <details class="panel">
+    <summary>Legend</summary>
+    <div class="legend" id="legend"></div>
+  </details>
+
+  <details class="panel">
+    <summary>Moves</summary>
+    <ol class="moves" id="moves"></ol>
+  </details>
+
+  <details class="panel">
+    <summary>Game</summary>
+    <div class="gameinfo">
+      <label class="pick" for="gamepick">Game</label>
+      <select id="gamepick"></select>
+      <div id="gamemeta"></div>
+    </div>
+  </details>
+</main>
+
+<footer>
+  <p>Influence maps computed from scratch; <a href="vendor/chess.js/LICENSE">chess.js</a> (BSD&#8209;2&#8209;Clause) used only for PGN parsing and legality. <a href="README.md">README</a></p>
+</footer>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
