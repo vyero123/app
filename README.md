@@ -126,6 +126,14 @@ disappear on an unlit square. That's the only thing that leaks piece identity,
 and it leaks only *side*: a rook and a bishop are indistinguishable, and you
 can only tell them apart by the shadow they throw.
 
+**Daylight.** The **Shadows / Daylight** switch in the header turns the map off
+and shows the position the ordinary way — a wooden board with the pieces drawn
+on it — and swings the whole app from night theme to day. The "Shadow" half of
+the wordmark dims when it's on, since there are no shadows left to name. A
+selection survives the switch both ways, so you can find a piece in daylight,
+flip the shadows back on, and watch what it was doing. Keyboard: `D`.
+Deep-linkable as `?view=day`.
+
 **Spotlight.** Tap any glowing square to isolate that piece: its own influence
 lights up chartreuse while everything else dims to a fifth of its intensity.
 Tap again (or press Escape) to release. This is the quickest way to see what a
@@ -203,7 +211,8 @@ Deployment is Netlify from `main`, repo root, no build command, serving
 
 Next / previous / first / last, a scrubber to jump to any move, and autoplay
 with five speeds from 2.4s to 0.45s per move. Keyboard: `←` `→` to step,
-space to play/pause, `Home` / `End`, `Esc` to clear the spotlight.
+space to play/pause, `Home` / `End`, `Esc` to clear the spotlight, `D` for
+daylight.
 
 Transitions between positions ripple outwards from the square just moved to,
 with a small per-square delay, so a move reads as a disturbance propagating
