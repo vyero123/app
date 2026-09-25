@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shadow Chess — distinguishing the two sides</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 20px 16px 60px;
+  background: #f5f3ee; color: #1b1d22;
+  font: 15px/1.6 ui-sans-serif, -apple-system, system-ui, sans-serif;
+}
+.wrap { max-width: 760px; margin: 0 auto; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+h2 { font-size: 18px; margin: 34px 0 2px; }
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+     color: #6c7280; margin: 18px 0 6px; font-weight: 600; }
+p { margin: 0 0 10px; }
+.lede { color: #4a5059; }
+.trade { color: #7a4a12; background: #fdf6e8; border-left: 3px solid #d9a441;
+         padding: 8px 12px; border-radius: 0 6px 6px 0; font-size: 14px; }
+.note { font-size: 13px; color: #6c7280; }
+.rec { background: #eef6ef; border-left: 3px solid #3f8f52; padding: 10px 14px;
+       border-radius: 0 6px 6px 0; }
+
+/* Squares are 42px — the real size on a 375px phone. Resist the urge to
+   enlarge them: everything looks fine at 80px. */
+.strip { display: grid; grid-template-columns: repeat(12, 42px); width: 504px;
+         max-width: 100%; border-radius: 6px; overflow: hidden; }
+.strip.dark { background: #05070c; gap: 1px; }
+.sq { width: 42px; height: 42px; position: relative; }
+.labels { display: grid; grid-template-columns: repeat(12, 42px); width: 504px;
+          font: 9px/1.3 ui-monospace, Menlo, monospace; color: #7c828c;
+          margin-top: 3px; }
+.labels span { text-align: center; padding: 0 1px; overflow: hidden; }
+.side { font: 600 11px/1 ui-sans-serif; color: #6c7280; margin: 10px 0 4px; }
+
+.piece { position: absolute; inset: 5%; display: block; }
+.piece svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.piece svg > g { stroke-linejoin: round; stroke-linecap: round; paint-order: stroke fill; }
+.piece .cut { fill: none; stroke-linecap: round; }
+.glow { position: absolute; inset: 2px; border-radius: 4px; pointer-events: none; }
+
+/* ---- Option A: value inversion ---- */
+[data-opt="a"] .piece svg > g { stroke-width: 4; }
+[data-opt="a"][data-side="w"] .piece svg > g { fill: #ffffff; stroke: #23180a; }
+[data-opt="a"][data-side="b"] .piece svg > g { fill: #0d0b08; stroke: #fbf7ee; }
+[data-opt="a"][data-side="w"] .piece .eye,
+[data-opt="a"][data-side="w"] .piece .cut { stroke: #23180a; fill: none; stroke-width: 4.2; }
+[data-opt="a"][data-side="b"] .piece .eye,
+[data-opt="a"][data-side="b"] .piece .cut { stroke: #fbf7ee; fill: none; stroke-width: 4.2; }
+[data-opt="a"][data-side="w"] .piece circle.eye { fill: #23180a; stroke: none; }
+[data-opt="a"][data-side="b"] .piece circle.eye { fill: #fbf7ee; stroke: none; }
+[data-opt="a"][data-side="w"] .glow {
+  box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 3.5px rgba(0,0,0,.6), 0 0 8px rgba(255,255,255,.22); }
+[data-opt="a"][data-side="b"] .glow {
+  box-shadow: inset 0 0 0 2px #04060b, inset 0 0 0 3.5px rgba(255,255,255,.75), 0 0 8px rgba(0,0,0,.4); }
+
+/* ---- Option B: solid vs hollow, one ink ---- */
+[data-opt="b"] .piece svg > g { stroke-width: 5; }
+[data-opt="b"][data-side="b"] .piece svg > g { fill: #14110c; stroke: #14110c; }
+[data-opt="b"][data-side="w"] .piece svg > g { fill: none; stroke: #14110c; }
+[data-opt="b"] .piece .cut { stroke: #14110c; stroke-width: 4.2; }
+[data-opt="b"][data-side="b"] .piece circle.eye { fill: #f5efe2; stroke: none; }
+[data-opt="b"][data-side="w"] .piece circle.eye { fill: none; stroke: #14110c; stroke-width: 3.5; }
+/* Over the dark influence map the single ink flips to light — it is one ink
+   per context, not one ink forever. */
+.strip.dark [data-opt="b"] .piece svg > g { stroke: #f2ece0; }
+.strip.dark [data-opt="b"][data-side="b"] .piece svg > g { fill: #f2ece0; }
+.strip.dark [data-opt="b"][data-side="b"] .piece circle.eye { fill: #14110c; }
+.strip.dark [data-opt="b"][data-side="w"] .piece circle.eye { stroke: #f2ece0; }
+.strip.dark [data-opt="b"] .piece .cut { stroke: #f2ece0; }
+[data-opt="b"][data-side="b"] .glow {
+  box-shadow: inset 0 0 0 3px #f2ece0, 0 0 8px rgba(0,0,0,.35); }
+[data-opt="b"][data-side="w"] .glow {
+  box-shadow: inset 0 0 0 1.5px #f2ece0, inset 0 0 0 4.5px transparent,
+              inset 0 0 0 6px #f2ece0, 0 0 8px rgba(0,0,0,.35); }
+
+/* ---- Option C: constant-contrast silhouette on a side chip ---- */
+[data-opt="c"] .piece { inset: 14%; z-index: 1; }
+[data-opt="c"] .piece svg > g { stroke-width: 3; fill: #1a1712; stroke: #1a1712; }
+[data-opt="c"] .piece circle.eye { fill: #efe8da; stroke: none; }
+[data-opt="c"] .piece .cut { stroke: #efe8da; stroke-width: 4; }
+[data-opt="c"] .chip {
+  position: absolute; inset: 7%; border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0,0,0,.3);
+}
+[data-opt="c"][data-side="w"] .chip { background: #f6f1e4; border: 1.5px solid #6d5a3e; }
+[data-opt="c"][data-side="b"] .chip { background: #55636e; border: 1.5px solid #cfd8de; }
+[data-opt="c"][data-side="b"] .piece svg > g { fill: #0e1216; stroke: #0e1216; }
+[data-opt="c"][data-side="b"] .piece circle.eye { fill: #cfd8de; }
+[data-opt="c"][data-side="b"] .piece .cut { stroke: #cfd8de; }
+/* In shadow mode the chip IS the ring. */
+[data-opt="c"] .glow { display: none; }
+.strip.dark [data-opt="c"] .chip { inset: 5%; border-radius: 6px; }
+</style></head>
+<body><div class="wrap">
+
+<h1>Distinguishing White from Black</h1>
+<p class="lede">Three mechanisms, rendered at the real size a piece occupies on a 375px
+phone — 42px — using the app's actual piece shapes and its actual influence colours.
+Nothing here is a mockup approximation.</p>
+
+<h3>What makes this awkward</h3>
+<p>Four constraints pull against each other:</p>
+<ul>
+<li><strong>The backdrop lightness varies enormously.</strong> In daylight it is two known
+tones. In shadow mode it runs from an unlit square at roughly 13% lightness to a
+White ×5 amber at about 58% — so any treatment resting on lightness alone has a band in
+the middle where it thins out.</li>
+<li><strong>Hue is already spoken for.</strong> Amber, cyan and violet carry the influence
+map. Adding a hue cue for the sides would both collide with that and be the least
+colour-blind-safe move available, so every option here is deliberately achromatic.</li>
+<li><strong>Forty pixels.</strong> Texture and hatching — the obvious "make one side
+different" move — alias into grey mush below about 60px at a 1.5× pixel ratio, and were
+rejected for that reason. Likewise pure stroke-weight contrast: a queen carries more ink
+than a pawn whatever side it is on, so weight cannot carry the distinction on its own.</li>
+<li><strong>The ring is already there.</strong> Occupancy and selection are signalled at
+the edge of the square, so anything else placed at that edge competes with them.</li>
+</ul>
+
+
+<h2>A · Value inversion with keylines</h2>
+<p class="lede">White is near-white with a dark keyline; Black is near-black with a light
+      keyline. Every piece therefore carries <em>both</em> values at its edge, so whichever
+      way the backdrop goes, one of the two still reads. This is what chess sets have done
+      for two hundred years, and it is what the app ships today — shown here tightened, with
+      a wider value gap and a heavier keyline.</p>
+
+<h3>Daylight — all six types, both sides, on both square colours</h3>
+<div class="strip"><div class="sq" data-opt="a" data-side="w" style="background:rgb(240 217 181)" title="White pawn"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(0.9) translate(-50 -88)">
+    <circle cx="50" cy="31.5" r="11.5"/>
+    <path d="M39.5 40.5c6.4 4.6 14.6 4.6 21 0-.9 10.4-3.6 19-6 24.5h-9c-2.4-5.5-5.1-14.1-6-24.5z"/>
+    <path d="M32 70h36c3 0 5 2 5.8 4.8l1.9 7c.9 3.1-1 5.7-4.2 5.7H28.5c-3.2 0-5.1-2.6-4.2-5.7l1.9-7c.8-2.8 2.8-4.8 5.8-4.8z"/></g></svg></span></div><div class="sq" data-opt="a" data-side="w" style="background:rgb(181 136 99)" title="White knight"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="a" data-side="w" style="background:rgb(240 217 181)" title="White bishop"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <circle cx="50" cy="10.5" r="4.6"/>
+    <path d="M50 16.5c8.6 8.4 14.4 16.8 14.4 24.6 0 8.2-6.4 14.2-14.4 14.2s-14.4-6-14.4-14.2c0-7.8 5.8-16.2 14.4-24.6z"/>
+    <path class="cut" d="M42 36.5L58 22"/>
+    <path d="M36.5 50.5h27L60.8 64H39.2z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="a" data-side="w" style="background:rgb(181 136 99)" title="White rook"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="a" data-side="w" style="background:rgb(240 217 181)" title="White queen"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <circle cx="17" cy="27" r="5.4"/>
+    <circle cx="33.5" cy="19" r="5.4"/>
+    <circle cx="50" cy="14.5" r="6.2"/>
+    <circle cx="66.5" cy="19" r="5.4"/>
+    <circle cx="83" cy="27" r="5.4"/>
+    <path d="M17 29.5l8.5 34.5h49L83 29.5 68.5 43.5 62 20 50 46.5 38 20l-6.5 23.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="a" data-side="w" style="background:rgb(181 136 99)" title="White king"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.03) translate(-50 -88)">
+    <path d="M45 3h10v7.5h8v9h-8V29H45v-9.5h-8v-9h8z"/>
+    <path d="M50 26.5c-11 0-19.5 8.6-19.5 19.2 0 7 3.6 12.4 6.8 18.3h25.4c3.2-5.9 6.8-11.3 6.8-18.3 0-10.6-8.5-19.2-19.5-19.2z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="a" data-side="b" style="background:rgb(181 136 99)" title="Black pawn"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(0.9) translate(-50 -88)">
+    <circle cx="50" cy="31.5" r="11.5"/>
+    <path d="M39.5 40.5c6.4 4.6 14.6 4.6 21 0-.9 10.4-3.6 19-6 24.5h-9c-2.4-5.5-5.1-14.1-6-24.5z"/>
+    <path d="M32 70h36c3 0 5 2 5.8 4.8l1.9 7c.9 3.1-1 5.7-4.2 5.7H28.5c-3.2 0-5.1-2.6-4.2-5.7l1.9-7c.8-2.8 2.8-4.8 5.8-4.8z"/></g></svg></span></div><div class="sq" data-opt="a" data-side="b" style="background:rgb(240 217 181)" title="Black knight"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="a" data-side="b" style="background:rgb(181 136 99)" title="Black bishop"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <circle cx="50" cy="10.5" r="4.6"/>
+    <path d="M50 16.5c8.6 8.4 14.4 16.8 14.4 24.6 0 8.2-6.4 14.2-14.4 14.2s-14.4-6-14.4-14.2c0-7.8 5.8-16.2 14.4-24.6z"/>
+    <path class="cut" d="M42 36.5L58 22"/>
+    <path d="M36.5 50.5h27L60.8 64H39.2z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="a" data-side="b" style="background:rgb(240 217 181)" title="Black rook"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="a" data-side="b" style="background:rgb(181 136 99)" title="Black queen"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <circle cx="17" cy="27" r="5.4"/>
+    <circle cx="33.5" cy="19" r="5.4"/>
+    <circle cx="50" cy="14.5" r="6.2"/>
+    <circle cx="66.5" cy="19" r="5.4"/>
+    <circle cx="83" cy="27" r="5.4"/>
+    <path d="M17 29.5l8.5 34.5h49L83 29.5 68.5 43.5 62 20 50 46.5 38 20l-6.5 23.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="a" data-side="b" style="background:rgb(240 217 181)" title="Black king"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.03) translate(-50 -88)">
+    <path d="M45 3h10v7.5h8v9h-8V29H45v-9.5h-8v-9h8z"/>
+    <path d="M50 26.5c-11 0-19.5 8.6-19.5 19.2 0 7 3.6 12.4 6.8 18.3h25.4c3.2-5.9 6.8-11.3 6.8-18.3 0-10.6-8.5-19.2-19.5-19.2z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div></div>
+<div class="labels"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+<p class="note">Left six: White. Right six: Black. Pawn, knight, bishop, rook, queen, king.</p>
+
+<h3>Shadow mode — the occupancy ring over the influence map</h3>
+<div class="strip dark"><div class="sq ring" data-opt="a" data-side="w" style="background:rgb(20 24 38)" title="White piece on no control"><span class="glow"></span></div><div class="sq ring" data-opt="a" data-side="w" style="background:rgb(79 61 36)" title="White piece on White ×1"><span class="glow"></span></div><div class="sq ring" data-opt="a" data-side="w" style="background:rgb(202 150 63)" title="White piece on White ×5"><span class="glow"></span></div><div class="sq ring" data-opt="a" data-side="w" style="background:rgb(59 179 205)" title="White piece on Black ×5"><span class="glow"></span></div><div class="sq ring" data-opt="a" data-side="w" style="background:rgb(96 36 122)" title="White piece on contested 1–1"><span class="glow"></span></div><div class="sq ring" data-opt="a" data-side="w" style="background:rgb(168 70 196)" title="White piece on contested 4–4"><span class="glow"></span></div><div class="sq ring" data-opt="a" data-side="b" style="background:rgb(20 24 38)" title="Black piece on no control"><span class="glow"></span></div><div class="sq ring" data-opt="a" data-side="b" style="background:rgb(79 61 36)" title="Black piece on White ×1"><span class="glow"></span></div><div class="sq ring" data-opt="a" data-side="b" style="background:rgb(202 150 63)" title="Black piece on White ×5"><span class="glow"></span></div><div class="sq ring" data-opt="a" data-side="b" style="background:rgb(59 179 205)" title="Black piece on Black ×5"><span class="glow"></span></div><div class="sq ring" data-opt="a" data-side="b" style="background:rgb(96 36 122)" title="Black piece on contested 1–1"><span class="glow"></span></div><div class="sq ring" data-opt="a" data-side="b" style="background:rgb(168 70 196)" title="Black piece on contested 4–4"><span class="glow"></span></div></div>
+<div class="labels"><span>no control</span><span>White ×1</span><span>White ×5</span><span>Black ×5</span><span>contested 1–1</span><span>contested 4–4</span><span>no control</span><span>White ×1</span><span>White ×5</span><span>Black ×5</span><span>contested 1–1</span><span>contested 4–4</span></div>
+<p class="note">Left six: a White piece. Right six: a Black piece. The last two columns of
+each half are the contested squares — the worst case.</p>
+
+<h3>Shadow mode with silhouettes — the stress test</h3>
+<div class="strip dark"><div class="sq ring" data-opt="a" data-side="w" style="background:rgb(20 24 38)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="a" data-side="w" style="background:rgb(79 61 36)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="a" data-side="w" style="background:rgb(202 150 63)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="a" data-side="w" style="background:rgb(59 179 205)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="a" data-side="w" style="background:rgb(96 36 122)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="a" data-side="w" style="background:rgb(168 70 196)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="a" data-side="b" style="background:rgb(20 24 38)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="a" data-side="b" style="background:rgb(79 61 36)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="a" data-side="b" style="background:rgb(202 150 63)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="a" data-side="b" style="background:rgb(59 179 205)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="a" data-side="b" style="background:rgb(96 36 122)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="a" data-side="b" style="background:rgb(168 70 196)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div></div>
+<div class="labels"><span>no control</span><span>White ×1</span><span>White ×5</span><span>Black ×5</span><span>contested 1–1</span><span>contested 4–4</span><span>no control</span><span>White ×1</span><span>White ×5</span><span>Black ×5</span><span>contested 1–1</span><span>contested 4–4</span></div>
+<p class="note">The app does not draw pieces in shadow mode — this is here only to show
+whether each treatment would survive if it ever did, which is the harshest test of the
+fill/outline system.</p>
+
+<p class="trade"><strong>Trades away.</strong> Relies entirely on lightness. On a mid-lightness backdrop — amber ×3, contested
+      ×2 — both sides sit at similar local contrast and you tell them apart by which value is
+      on the <em>inside</em>, which is a second-order read. The keyline also eats into the
+      silhouette: at 40px it is about 1.4 CSS px, which rounds off the knight's muzzle and
+      the queen's points.</p>
+
+
+<h2>B · Solid versus hollow</h2>
+<p class="lede">Both sides are drawn in the <em>same</em> ink. Black is a filled silhouette;
+      White is the same silhouette left open, so the square shows through its body. The
+      distinction stops being a colour and becomes a topology — filled or hollow — which
+      survives any backdrop and any colour vision. In shadow mode the ring follows the same
+      logic: Black gets a solid ring, White a double hairline.</p>
+
+<h3>Daylight — all six types, both sides, on both square colours</h3>
+<div class="strip"><div class="sq" data-opt="b" data-side="w" style="background:rgb(240 217 181)" title="White pawn"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(0.9) translate(-50 -88)">
+    <circle cx="50" cy="31.5" r="11.5"/>
+    <path d="M39.5 40.5c6.4 4.6 14.6 4.6 21 0-.9 10.4-3.6 19-6 24.5h-9c-2.4-5.5-5.1-14.1-6-24.5z"/>
+    <path d="M32 70h36c3 0 5 2 5.8 4.8l1.9 7c.9 3.1-1 5.7-4.2 5.7H28.5c-3.2 0-5.1-2.6-4.2-5.7l1.9-7c.8-2.8 2.8-4.8 5.8-4.8z"/></g></svg></span></div><div class="sq" data-opt="b" data-side="w" style="background:rgb(181 136 99)" title="White knight"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="b" data-side="w" style="background:rgb(240 217 181)" title="White bishop"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <circle cx="50" cy="10.5" r="4.6"/>
+    <path d="M50 16.5c8.6 8.4 14.4 16.8 14.4 24.6 0 8.2-6.4 14.2-14.4 14.2s-14.4-6-14.4-14.2c0-7.8 5.8-16.2 14.4-24.6z"/>
+    <path class="cut" d="M42 36.5L58 22"/>
+    <path d="M36.5 50.5h27L60.8 64H39.2z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="b" data-side="w" style="background:rgb(181 136 99)" title="White rook"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="b" data-side="w" style="background:rgb(240 217 181)" title="White queen"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <circle cx="17" cy="27" r="5.4"/>
+    <circle cx="33.5" cy="19" r="5.4"/>
+    <circle cx="50" cy="14.5" r="6.2"/>
+    <circle cx="66.5" cy="19" r="5.4"/>
+    <circle cx="83" cy="27" r="5.4"/>
+    <path d="M17 29.5l8.5 34.5h49L83 29.5 68.5 43.5 62 20 50 46.5 38 20l-6.5 23.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="b" data-side="w" style="background:rgb(181 136 99)" title="White king"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.03) translate(-50 -88)">
+    <path d="M45 3h10v7.5h8v9h-8V29H45v-9.5h-8v-9h8z"/>
+    <path d="M50 26.5c-11 0-19.5 8.6-19.5 19.2 0 7 3.6 12.4 6.8 18.3h25.4c3.2-5.9 6.8-11.3 6.8-18.3 0-10.6-8.5-19.2-19.5-19.2z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="b" data-side="b" style="background:rgb(181 136 99)" title="Black pawn"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(0.9) translate(-50 -88)">
+    <circle cx="50" cy="31.5" r="11.5"/>
+    <path d="M39.5 40.5c6.4 4.6 14.6 4.6 21 0-.9 10.4-3.6 19-6 24.5h-9c-2.4-5.5-5.1-14.1-6-24.5z"/>
+    <path d="M32 70h36c3 0 5 2 5.8 4.8l1.9 7c.9 3.1-1 5.7-4.2 5.7H28.5c-3.2 0-5.1-2.6-4.2-5.7l1.9-7c.8-2.8 2.8-4.8 5.8-4.8z"/></g></svg></span></div><div class="sq" data-opt="b" data-side="b" style="background:rgb(240 217 181)" title="Black knight"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="b" data-side="b" style="background:rgb(181 136 99)" title="Black bishop"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <circle cx="50" cy="10.5" r="4.6"/>
+    <path d="M50 16.5c8.6 8.4 14.4 16.8 14.4 24.6 0 8.2-6.4 14.2-14.4 14.2s-14.4-6-14.4-14.2c0-7.8 5.8-16.2 14.4-24.6z"/>
+    <path class="cut" d="M42 36.5L58 22"/>
+    <path d="M36.5 50.5h27L60.8 64H39.2z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="b" data-side="b" style="background:rgb(240 217 181)" title="Black rook"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="b" data-side="b" style="background:rgb(181 136 99)" title="Black queen"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <circle cx="17" cy="27" r="5.4"/>
+    <circle cx="33.5" cy="19" r="5.4"/>
+    <circle cx="50" cy="14.5" r="6.2"/>
+    <circle cx="66.5" cy="19" r="5.4"/>
+    <circle cx="83" cy="27" r="5.4"/>
+    <path d="M17 29.5l8.5 34.5h49L83 29.5 68.5 43.5 62 20 50 46.5 38 20l-6.5 23.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="b" data-side="b" style="background:rgb(240 217 181)" title="Black king"><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.03) translate(-50 -88)">
+    <path d="M45 3h10v7.5h8v9h-8V29H45v-9.5h-8v-9h8z"/>
+    <path d="M50 26.5c-11 0-19.5 8.6-19.5 19.2 0 7 3.6 12.4 6.8 18.3h25.4c3.2-5.9 6.8-11.3 6.8-18.3 0-10.6-8.5-19.2-19.5-19.2z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div></div>
+<div class="labels"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+<p class="note">Left six: White. Right six: Black. Pawn, knight, bishop, rook, queen, king.</p>
+
+<h3>Shadow mode — the occupancy ring over the influence map</h3>
+<div class="strip dark"><div class="sq ring" data-opt="b" data-side="w" style="background:rgb(20 24 38)" title="White piece on no control"><span class="glow"></span></div><div class="sq ring" data-opt="b" data-side="w" style="background:rgb(79 61 36)" title="White piece on White ×1"><span class="glow"></span></div><div class="sq ring" data-opt="b" data-side="w" style="background:rgb(202 150 63)" title="White piece on White ×5"><span class="glow"></span></div><div class="sq ring" data-opt="b" data-side="w" style="background:rgb(59 179 205)" title="White piece on Black ×5"><span class="glow"></span></div><div class="sq ring" data-opt="b" data-side="w" style="background:rgb(96 36 122)" title="White piece on contested 1–1"><span class="glow"></span></div><div class="sq ring" data-opt="b" data-side="w" style="background:rgb(168 70 196)" title="White piece on contested 4–4"><span class="glow"></span></div><div class="sq ring" data-opt="b" data-side="b" style="background:rgb(20 24 38)" title="Black piece on no control"><span class="glow"></span></div><div class="sq ring" data-opt="b" data-side="b" style="background:rgb(79 61 36)" title="Black piece on White ×1"><span class="glow"></span></div><div class="sq ring" data-opt="b" data-side="b" style="background:rgb(202 150 63)" title="Black piece on White ×5"><span class="glow"></span></div><div class="sq ring" data-opt="b" data-side="b" style="background:rgb(59 179 205)" title="Black piece on Black ×5"><span class="glow"></span></div><div class="sq ring" data-opt="b" data-side="b" style="background:rgb(96 36 122)" title="Black piece on contested 1–1"><span class="glow"></span></div><div class="sq ring" data-opt="b" data-side="b" style="background:rgb(168 70 196)" title="Black piece on contested 4–4"><span class="glow"></span></div></div>
+<div class="labels"><span>no control</span><span>White ×1</span><span>White ×5</span><span>Black ×5</span><span>contested 1–1</span><span>contested 4–4</span><span>no control</span><span>White ×1</span><span>White ×5</span><span>Black ×5</span><span>contested 1–1</span><span>contested 4–4</span></div>
+<p class="note">Left six: a White piece. Right six: a Black piece. The last two columns of
+each half are the contested squares — the worst case.</p>
+
+<h3>Shadow mode with silhouettes — the stress test</h3>
+<div class="strip dark"><div class="sq ring" data-opt="b" data-side="w" style="background:rgb(20 24 38)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="b" data-side="w" style="background:rgb(79 61 36)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="b" data-side="w" style="background:rgb(202 150 63)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="b" data-side="w" style="background:rgb(59 179 205)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="b" data-side="w" style="background:rgb(96 36 122)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="b" data-side="w" style="background:rgb(168 70 196)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="b" data-side="b" style="background:rgb(20 24 38)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="b" data-side="b" style="background:rgb(79 61 36)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="b" data-side="b" style="background:rgb(202 150 63)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="b" data-side="b" style="background:rgb(59 179 205)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="b" data-side="b" style="background:rgb(96 36 122)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="b" data-side="b" style="background:rgb(168 70 196)"><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div></div>
+<div class="labels"><span>no control</span><span>White ×1</span><span>White ×5</span><span>Black ×5</span><span>contested 1–1</span><span>contested 4–4</span><span>no control</span><span>White ×1</span><span>White ×5</span><span>Black ×5</span><span>contested 1–1</span><span>contested 4–4</span></div>
+<p class="note">The app does not draw pieces in shadow mode — this is here only to show
+whether each treatment would survive if it ever did, which is the harshest test of the
+fill/outline system.</p>
+
+<p class="trade"><strong>Trades away.</strong> Hollow pieces read lighter in weight, so White's army can feel less present than
+      Black's — a real perceptual asymmetry, not just a stylistic one. The open body means
+      the influence tint reads straight through White's pieces, which is either the point of
+      this app or a distraction depending on your taste. Outline-only shapes need a generous
+      stroke at 40px or they go lacy, which limits how fine the internal detail can get.</p>
+
+
+<h2>C · Constant-contrast silhouette on a side chip</h2>
+<p class="lede">The side is moved <em>off</em> the silhouette. Both armies are drawn in one ink
+      chosen purely for contrast against the backdrop, so the shapes are equally legible
+      everywhere; which side it belongs to is carried by a chip sitting behind the piece —
+      bright for White, dark for Black. In shadow mode the chip <em>is</em> the occupancy
+      ring, so two signals collapse into one instead of competing.</p>
+
+<h3>Daylight — all six types, both sides, on both square colours</h3>
+<div class="strip"><div class="sq" data-opt="c" data-side="w" style="background:rgb(240 217 181)" title="White pawn"><span class="chip"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(0.9) translate(-50 -88)">
+    <circle cx="50" cy="31.5" r="11.5"/>
+    <path d="M39.5 40.5c6.4 4.6 14.6 4.6 21 0-.9 10.4-3.6 19-6 24.5h-9c-2.4-5.5-5.1-14.1-6-24.5z"/>
+    <path d="M32 70h36c3 0 5 2 5.8 4.8l1.9 7c.9 3.1-1 5.7-4.2 5.7H28.5c-3.2 0-5.1-2.6-4.2-5.7l1.9-7c.8-2.8 2.8-4.8 5.8-4.8z"/></g></svg></span></div><div class="sq" data-opt="c" data-side="w" style="background:rgb(181 136 99)" title="White knight"><span class="chip"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="c" data-side="w" style="background:rgb(240 217 181)" title="White bishop"><span class="chip"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <circle cx="50" cy="10.5" r="4.6"/>
+    <path d="M50 16.5c8.6 8.4 14.4 16.8 14.4 24.6 0 8.2-6.4 14.2-14.4 14.2s-14.4-6-14.4-14.2c0-7.8 5.8-16.2 14.4-24.6z"/>
+    <path class="cut" d="M42 36.5L58 22"/>
+    <path d="M36.5 50.5h27L60.8 64H39.2z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="c" data-side="w" style="background:rgb(181 136 99)" title="White rook"><span class="chip"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="c" data-side="w" style="background:rgb(240 217 181)" title="White queen"><span class="chip"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <circle cx="17" cy="27" r="5.4"/>
+    <circle cx="33.5" cy="19" r="5.4"/>
+    <circle cx="50" cy="14.5" r="6.2"/>
+    <circle cx="66.5" cy="19" r="5.4"/>
+    <circle cx="83" cy="27" r="5.4"/>
+    <path d="M17 29.5l8.5 34.5h49L83 29.5 68.5 43.5 62 20 50 46.5 38 20l-6.5 23.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="c" data-side="w" style="background:rgb(181 136 99)" title="White king"><span class="chip"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.03) translate(-50 -88)">
+    <path d="M45 3h10v7.5h8v9h-8V29H45v-9.5h-8v-9h8z"/>
+    <path d="M50 26.5c-11 0-19.5 8.6-19.5 19.2 0 7 3.6 12.4 6.8 18.3h25.4c3.2-5.9 6.8-11.3 6.8-18.3 0-10.6-8.5-19.2-19.5-19.2z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="c" data-side="b" style="background:rgb(181 136 99)" title="Black pawn"><span class="chip"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(0.9) translate(-50 -88)">
+    <circle cx="50" cy="31.5" r="11.5"/>
+    <path d="M39.5 40.5c6.4 4.6 14.6 4.6 21 0-.9 10.4-3.6 19-6 24.5h-9c-2.4-5.5-5.1-14.1-6-24.5z"/>
+    <path d="M32 70h36c3 0 5 2 5.8 4.8l1.9 7c.9 3.1-1 5.7-4.2 5.7H28.5c-3.2 0-5.1-2.6-4.2-5.7l1.9-7c.8-2.8 2.8-4.8 5.8-4.8z"/></g></svg></span></div><div class="sq" data-opt="c" data-side="b" style="background:rgb(240 217 181)" title="Black knight"><span class="chip"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="c" data-side="b" style="background:rgb(181 136 99)" title="Black bishop"><span class="chip"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <circle cx="50" cy="10.5" r="4.6"/>
+    <path d="M50 16.5c8.6 8.4 14.4 16.8 14.4 24.6 0 8.2-6.4 14.2-14.4 14.2s-14.4-6-14.4-14.2c0-7.8 5.8-16.2 14.4-24.6z"/>
+    <path class="cut" d="M42 36.5L58 22"/>
+    <path d="M36.5 50.5h27L60.8 64H39.2z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="c" data-side="b" style="background:rgb(240 217 181)" title="Black rook"><span class="chip"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="c" data-side="b" style="background:rgb(181 136 99)" title="Black queen"><span class="chip"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <circle cx="17" cy="27" r="5.4"/>
+    <circle cx="33.5" cy="19" r="5.4"/>
+    <circle cx="50" cy="14.5" r="6.2"/>
+    <circle cx="66.5" cy="19" r="5.4"/>
+    <circle cx="83" cy="27" r="5.4"/>
+    <path d="M17 29.5l8.5 34.5h49L83 29.5 68.5 43.5 62 20 50 46.5 38 20l-6.5 23.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq" data-opt="c" data-side="b" style="background:rgb(240 217 181)" title="Black king"><span class="chip"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.03) translate(-50 -88)">
+    <path d="M45 3h10v7.5h8v9h-8V29H45v-9.5h-8v-9h8z"/>
+    <path d="M50 26.5c-11 0-19.5 8.6-19.5 19.2 0 7 3.6 12.4 6.8 18.3h25.4c3.2-5.9 6.8-11.3 6.8-18.3 0-10.6-8.5-19.2-19.5-19.2z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div></div>
+<div class="labels"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+<p class="note">Left six: White. Right six: Black. Pawn, knight, bishop, rook, queen, king.</p>
+
+<h3>Shadow mode — the occupancy ring over the influence map</h3>
+<div class="strip dark"><div class="sq ring" data-opt="c" data-side="w" style="background:rgb(20 24 38)" title="White piece on no control"><span class="chip"></span><span class="glow"></span></div><div class="sq ring" data-opt="c" data-side="w" style="background:rgb(79 61 36)" title="White piece on White ×1"><span class="chip"></span><span class="glow"></span></div><div class="sq ring" data-opt="c" data-side="w" style="background:rgb(202 150 63)" title="White piece on White ×5"><span class="chip"></span><span class="glow"></span></div><div class="sq ring" data-opt="c" data-side="w" style="background:rgb(59 179 205)" title="White piece on Black ×5"><span class="chip"></span><span class="glow"></span></div><div class="sq ring" data-opt="c" data-side="w" style="background:rgb(96 36 122)" title="White piece on contested 1–1"><span class="chip"></span><span class="glow"></span></div><div class="sq ring" data-opt="c" data-side="w" style="background:rgb(168 70 196)" title="White piece on contested 4–4"><span class="chip"></span><span class="glow"></span></div><div class="sq ring" data-opt="c" data-side="b" style="background:rgb(20 24 38)" title="Black piece on no control"><span class="chip"></span><span class="glow"></span></div><div class="sq ring" data-opt="c" data-side="b" style="background:rgb(79 61 36)" title="Black piece on White ×1"><span class="chip"></span><span class="glow"></span></div><div class="sq ring" data-opt="c" data-side="b" style="background:rgb(202 150 63)" title="Black piece on White ×5"><span class="chip"></span><span class="glow"></span></div><div class="sq ring" data-opt="c" data-side="b" style="background:rgb(59 179 205)" title="Black piece on Black ×5"><span class="chip"></span><span class="glow"></span></div><div class="sq ring" data-opt="c" data-side="b" style="background:rgb(96 36 122)" title="Black piece on contested 1–1"><span class="chip"></span><span class="glow"></span></div><div class="sq ring" data-opt="c" data-side="b" style="background:rgb(168 70 196)" title="Black piece on contested 4–4"><span class="chip"></span><span class="glow"></span></div></div>
+<div class="labels"><span>no control</span><span>White ×1</span><span>White ×5</span><span>Black ×5</span><span>contested 1–1</span><span>contested 4–4</span><span>no control</span><span>White ×1</span><span>White ×5</span><span>Black ×5</span><span>contested 1–1</span><span>contested 4–4</span></div>
+<p class="note">Left six: a White piece. Right six: a Black piece. The last two columns of
+each half are the contested squares — the worst case.</p>
+
+<h3>Shadow mode with silhouettes — the stress test</h3>
+<div class="strip dark"><div class="sq ring" data-opt="c" data-side="w" style="background:rgb(20 24 38)"><span class="chip"></span><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="c" data-side="w" style="background:rgb(79 61 36)"><span class="chip"></span><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="c" data-side="w" style="background:rgb(202 150 63)"><span class="chip"></span><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="c" data-side="w" style="background:rgb(59 179 205)"><span class="chip"></span><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="c" data-side="w" style="background:rgb(96 36 122)"><span class="chip"></span><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="c" data-side="w" style="background:rgb(168 70 196)"><span class="chip"></span><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1) translate(-50 -88)">
+    <path d="M25 16h10.5v7h9.5v-7h10v7h9.5v-7H75v15.5l-6.5 5.5v22l6.5 5.5V70H25v-5.5l6.5-5.5v-22L25 31.5z"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="c" data-side="b" style="background:rgb(20 24 38)"><span class="chip"></span><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="c" data-side="b" style="background:rgb(79 61 36)"><span class="chip"></span><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="c" data-side="b" style="background:rgb(202 150 63)"><span class="chip"></span><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="c" data-side="b" style="background:rgb(59 179 205)"><span class="chip"></span><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="c" data-side="b" style="background:rgb(96 36 122)"><span class="chip"></span><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div><div class="sq ring" data-opt="c" data-side="b" style="background:rgb(168 70 196)"><span class="chip"></span><span class="glow"></span><span class="piece"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(50 88) scale(1.02) translate(-50 -88)">
+    <path d="M34 70c0-11 2-18 6-24l-7 4c-4 2-8-1-6-5 3-9 9-17 17-22 4-3 8-5 11-6l1-9 7 5c9 6 14 16 15 27 2 10 1 20 0 30z"/>
+    <circle class="eye" cx="45" cy="29" r="3"/>
+    <path d="M27 70h46c3.2 0 5.4 2.1 6.2 5.1l2.1 7.6c.9 3.2-1.1 5.8-4.4 5.8H23.1c-3.3 0-5.3-2.6-4.4-5.8l2.1-7.6c.8-3 3-5.1 6.2-5.1z"/></g></svg></span></div></div>
+<div class="labels"><span>no control</span><span>White ×1</span><span>White ×5</span><span>Black ×5</span><span>contested 1–1</span><span>contested 4–4</span><span>no control</span><span>White ×1</span><span>White ×5</span><span>Black ×5</span><span>contested 1–1</span><span>contested 4–4</span></div>
+<p class="note">The app does not draw pieces in shadow mode — this is here only to show
+whether each treatment would survive if it ever did, which is the harshest test of the
+fill/outline system.</p>
+
+<p class="trade"><strong>Trades away.</strong> Adds a second element inside a 40px square, and that element is the same kind of
+      thing as the ring — a shape around the piece — so it is the option most at risk of
+      looking busy. The chip also masks part of the influence tint under every occupied
+      square, which costs information on exactly the squares you most want to read. In
+      exchange it is the only option where piece legibility is <em>independent</em> of the
+      backdrop.</p>
+
+
+<h2>Recommendation</h2>
+<div class="rec" id="rec"></div>
+
+</div></body></html>
