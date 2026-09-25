@@ -130,19 +130,25 @@ main { padding-bottom: 32px; }
     inset 0 0 7px rgba(255, 255, 255, 0.28),
     0 0 8px rgba(255, 255, 255, 0.14);
 }
-/* Black's pieces glow a shade cooler, White's warmer — a faint tell, not a
-   piece identity. You still can't tell a rook from a bishop. */
-.sq.occupied[data-side="b"] .glow {
-  box-shadow:
-    inset 0 0 0 1.5px rgba(214, 240, 255, 0.85),
-    inset 0 0 7px rgba(150, 220, 255, 0.3),
-    0 0 8px rgba(120, 210, 255, 0.16);
-}
+/* The ring says whose piece it is: white for White, black for Black. Each ring
+   carries a contrasting keyline just outside it, because a white ring vanishes
+   on a pale amber square and a black one vanishes on an unlit square — the
+   keyline is what keeps both legible against every tint on the board.
+   It still tells you nothing about WHICH piece: a rook and a bishop look
+   identical, and only their shadows give them away. */
 .sq.occupied[data-side="w"] .glow {
   box-shadow:
-    inset 0 0 0 1.5px rgba(255, 246, 224, 0.9),
-    inset 0 0 7px rgba(255, 224, 160, 0.3),
-    0 0 8px rgba(255, 210, 120, 0.16);
+    inset 0 0 0 2px #ffffff,
+    inset 0 0 0 3.5px rgba(0, 0, 0, 0.55),
+    inset 0 0 8px rgba(255, 255, 255, 0.3),
+    0 0 8px rgba(255, 255, 255, 0.22);
+}
+.sq.occupied[data-side="b"] .glow {
+  box-shadow:
+    inset 0 0 0 2px #04060b,
+    inset 0 0 0 3.5px rgba(255, 255, 255, 0.72),
+    inset 0 0 8px rgba(0, 0, 0, 0.45),
+    0 0 8px rgba(0, 0, 0, 0.4);
 }
 
 .sq.to::after,

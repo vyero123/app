@@ -118,10 +118,13 @@ If you want the exact numbers rather than the colour, tick **Show attacker
 counts** — White's count appears top-left of each square, Black's bottom-right.
 It's also how you'd sanity-check the map yourself.
 
-**Occupancy.** A square with a piece on it gets a glowing inset edge, very
-slightly warm for White and cool for Black. That's the only thing that leaks
-piece identity, and it leaks only colour — you still can't tell a rook from a
-bishop except by the shadow it throws.
+**Occupancy.** A square with a piece on it gets a glowing inset ring — **white
+for White, black for Black**, so you can always tell whose piece you're looking
+at. Each ring carries a thin contrasting keyline just outside it, because a
+white ring would disappear on a pale amber square and a black one would
+disappear on an unlit square. That's the only thing that leaks piece identity,
+and it leaks only *side*: a rook and a bishop are indistinguishable, and you
+can only tell them apart by the shadow they throw.
 
 **Spotlight.** Tap any glowing square to isolate that piece: its own influence
 lights up chartreuse while everything else dims to a fifth of its intensity.
