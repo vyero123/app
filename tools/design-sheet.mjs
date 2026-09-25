@@ -282,7 +282,39 @@ the edge of the square, so anything else placed at that edge competes with them.
 ${OPTIONS.map(section).join('\n')}
 
 <h2>Recommendation</h2>
-<div class="rec" id="rec"></div>
+<div class="rec">
+<p><strong>B — solid versus hollow.</strong> It wins the worst case, which is the only case
+worth optimising for here.</p>
+<p>Look along the stress-test row for each option. A's black knight on an unlit square is held
+together by a single light keyline about a pixel and a half wide; it survives, but only just,
+and it is the one place the two-hundred-year-old convention has nothing left to give. C keeps
+its pieces perfectly legible but blanks the middle of every occupied square, so you can no
+longer tell a White ×1 square from a White ×5 one — it buys legibility with the exact
+information this app exists to show. B has no such band: every piece is drawn in one ink
+chosen for contrast against the backdrop, so contrast is constant no matter how loud the tint
+gets, and the side is carried by whether the shape is filled or open.</p>
+<p>Three secondary reasons. It is the most colour-blind-robust of the three, because filled
+versus open is a topology cue and survives every form of colour vision. It adds no element
+inside the square, so it never competes with the occupancy ring or the selection state. And it
+suits what the app is <em>about</em>: White's pieces are transparent, and you look straight
+through them to the board underneath.</p>
+<p>What it costs: White's army reads lighter in weight than Black's. That is a real perceptual
+asymmetry, not a stylistic quibble — in a position with material roughly level, Black will look
+slightly stronger than it is. The open interiors also force a generous stroke, so fine internal
+detail has to be drawn as an outline rather than a dot; the knight's eye becomes a small ring.</p>
+<p class="note" style="margin-top:8px"><strong>One caveat on the ring.</strong> B's shadow-mode
+ring — a double hairline for White against a solid ring for Black — is a weaker signal than A's
+white-versus-black ring, which is already shipping and already verified. If you pick B, I would
+keep A's ring and take only B's piece treatment. The two still tell one consistent story:
+<em>White is less ink, Black is more</em>, in both modes.</p>
+<p><strong>Second choice: A.</strong> Nothing about it is surprising, which is its whole
+argument. If you would rather daylight mode feel like an ordinary chess board than like part of
+this app, take A — it is already built, and its weak band is confined to shadow mode where the
+app does not currently draw pieces at all.</p>
+<p><strong>Not C.</strong> The sheet talked me out of it. On paper it is the most rigorous idea
+in the set; rendered at 42px it is busy, it introduces a grey that is in neither palette, and it
+hides the influence map under every piece on the board.</p>
+</div>
 
 </div></body></html>`;
 
