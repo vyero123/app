@@ -137,7 +137,7 @@
   document.getElementById('scrub').dispatchEvent(new Event('input'));
   ok('scrubbing jumps to move 20', player.index === 20, `index ${player.index}`);
 
-  // --- 5a. the king's aura --------------------------------------------------
+  // --- 5a. the chip, and the king's cross -----------------------------------
   {
     player.goto(total - 1, { force: true, instant: true });
     const st = player.states[total - 1];
@@ -147,26 +147,44 @@
       const p = st.influence.cells[i];
       const isKing = !!p && p.type === 'k';
       if (isKing) kings++;
-      if (el.classList.contains('king')) {
-        marked++;
-        if (!isKing) wrong++;
-      } else if (isKing) wrong++;
-      if (!el.querySelector('.aura')) wrong++;
+      if (el.classList.contains('king')) { marked++; if (!isKing) wrong++; }
+      else if (isKing) wrong++;
+      if (!el.querySelector('.chip')) wrong++;
+      if (!el.querySelector('.chip .cross')) wrong++;
     }
-    // Black's king is mated; White's is on e2. Both are still on the board.
-    ok('aura: both kings present', kings === 2, `${kings}`);
-    ok('aura: exactly the kings are marked', marked === 2 && wrong === 0,
+    ok('chip: both kings present', kings === 2, `${kings}`);
+    ok('chip: exactly the kings are marked', marked === 2 && wrong === 0,
        `marked ${marked}, wrong ${wrong}`);
-    ok('aura: every square carries an aura layer',
-       document.querySelectorAll('.sq .aura').length === 64);
-    ok('aura: the layer sits under the ring, not over it',
-       document.querySelector('.sq .aura').compareDocumentPosition(
+    ok('chip: every square carries a chip layer',
+       document.querySelectorAll('.sq .chip').length === 64);
+    ok('chip: the chip sits under the selection ring',
+       document.querySelector('.sq .chip').compareDocumentPosition(
          document.querySelector('.sq .glow')
        ) & Node.DOCUMENT_POSITION_FOLLOWING);
-    // It must not leak into daylight, where the piece is drawn anyway.
+
+    // The point of the redesign: the tint must still be readable around the
+    // chip. The chip is inset, so a frame of the square is never covered.
+    const cs = getComputedStyle(document.querySelector('.sq.occupied .chip'));
+    const insetPct = parseFloat(cs.inset || cs.top);
+    ok('chip: inset leaves a frame of tint', insetPct > 0, `inset ${cs.top}`);
+
+    // Occupancy must NOT be signalled at the edge any more — that space is
+    // given back to the influence colour.
+    const anyOccupied = document.querySelector('.sq.occupied:not(.sel)');
+    ok('chip: no occupancy ring at the square edge',
+       getComputedStyle(anyOccupied.querySelector('.glow')).opacity === '0',
+       getComputedStyle(anyOccupied.querySelector('.glow')).opacity);
+
+    // Selection still reads, and still at the edge.
+    anyOccupied.click();
+    ok('chip: selection lights the edge',
+       getComputedStyle(anyOccupied.querySelector('.glow')).opacity === '1');
+    anyOccupied.click();
+
+    // Chips belong to shadow mode only.
     document.getElementById('mode').click();
-    ok('aura: hidden in daylight',
-       getComputedStyle(document.querySelector('.sq.king .aura')).display === 'none');
+    ok('chip: faded out in daylight',
+       getComputedStyle(document.querySelector('.sq.king .chip')).opacity === '0');
     document.getElementById('mode').click();
   }
 

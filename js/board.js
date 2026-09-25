@@ -45,12 +45,14 @@ export class BoardView {
       el.dataset.light = isLight ? '1' : '0';
       el.tabIndex = -1;
 
-      // The king's aura sits UNDER the ring, so it never blurs the ring's
-      // edge. It is its own layer rather than part of any piece treatment,
-      // so it survives whichever fill/outline system we settle on.
-      const aura = document.createElement('span');
-      aura.className = 'aura';
-      el.appendChild(aura);
+      // Shadow mode marks an occupied square with a chip in the middle of the
+      // square rather than a ring at its edge. The chip is deliberately inset
+      // so the influence tint frames it on all four sides and stays readable —
+      // see the note in style.css.
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.innerHTML = '<i class="cross"></i>';
+      el.appendChild(chip);
 
       const glow = document.createElement('span');
       glow.className = 'glow';

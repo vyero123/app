@@ -197,85 +197,90 @@ body.day .mode .orb {
   opacity: 0;
   transition: opacity 340ms ease, box-shadow 340ms ease;
 }
-.sq.occupied .glow {
-  opacity: 1;
-  box-shadow:
-    inset 0 0 0 1.5px rgba(255, 255, 255, 0.82),
-    inset 0 0 7px rgba(255, 255, 255, 0.28),
-    0 0 8px rgba(255, 255, 255, 0.14);
-}
-/* The ring says whose piece it is: white for White, black for Black. Each ring
-   carries a contrasting keyline just outside it, because a white ring vanishes
-   on a pale amber square and a black one vanishes on an unlit square — the
-   keyline is what keeps both legible against every tint on the board.
-   It still tells you nothing about WHICH piece: a rook and a bishop look
-   identical, and only their shadows give them away. */
-.sq.occupied[data-side="w"] .glow {
-  box-shadow:
-    inset 0 0 0 2px #ffffff,
-    inset 0 0 0 3.5px rgba(0, 0, 0, 0.55),
-    inset 0 0 8px rgba(255, 255, 255, 0.3),
-    0 0 8px rgba(255, 255, 255, 0.22);
-}
-.sq.occupied[data-side="b"] .glow {
-  box-shadow:
-    inset 0 0 0 2px #04060b,
-    inset 0 0 0 3.5px rgba(255, 255, 255, 0.72),
-    inset 0 0 8px rgba(0, 0, 0, 0.45),
-    0 0 8px rgba(0, 0, 0, 0.4);
-}
+/* The edge of the square now belongs to SELECTION ALONE. Occupancy moved to
+   the chip in the middle, which is what buys back the perimeter for the
+   influence tint. */
 
-/* ---------- the king's aura ----------
-   An independent layer, under the ring and over the tint. It is a radial
-   aura rather than another ring on purpose: occupancy and selection already
-   speak at the edge of the square, so the king needed a different register —
-   something that radiates from the middle, where nothing else lives.
+/* ---------- the chip: occupancy and side, in shadow mode ----------
+   An occupied square is marked by a chip in the MIDDLE of the square, not a
+   ring at its edge. White's chip is light with a dark keyline, Black's dark
+   with a light one, so each is legible whatever the tint underneath does.
 
-   Both kings get one. White's is a warm light core; Black's is a dark core
-   with a cool corona, which is what keeps it visible on an unlit square AND
-   on a loud amber one — a purely dark halo would vanish on the former.
+   THE CHIP IS INSET ON PURPOSE. The obvious version of this — a chip filling
+   the square — hides the influence tint on exactly the squares you most want
+   to read, so White ×1 and White ×5 become the same picture. Two things fix
+   that here. First, the chip is inset 19%, leaving an 8px frame of untouched
+   tint on all four sides; intensity is read from hue and depth, and an 8px
+   frame is ample to read both. Second, moving occupancy into the middle means
+   the edge is no longer needed for it, so the ring is gone in shadow mode and
+   the whole perimeter of the square is now pure tint. Net effect: about 69%
+   of every occupied square still shows its influence colour — more than the
+   old ring treatment left, not less.
 
-   Only transform and opacity animate, so it stays on the compositor and costs
-   a phone nothing. No blur filters. */
-.aura {
+   That leaves a clean division of labour: the middle says who is here, the
+   edge says whether you have selected it, and the king's cross says which
+   piece is the one you navigate by. */
+.chip {
   position: absolute;
-  inset: -12%;
-  border-radius: 50%;
+  inset: 19%;
+  border-radius: 5px;
   pointer-events: none;
   opacity: 0;
-  z-index: 0;
-  transition: opacity 420ms ease;
+  transform: scale(0.82);
+  z-index: 1;
+  transition: opacity 320ms ease, transform 320ms cubic-bezier(.34,1.3,.64,1);
 }
-/* The aura spills past the square, so the king's tile has to paint above its
-   neighbours — grid items otherwise paint in DOM order and the square to its
-   right would clip the glow. */
+.sq.occupied .chip { opacity: 1; transform: scale(1); }
+/* Specificity matters here: `.sq.occupied .chip` is three classes, so the
+   daylight rule has to match it or chips survive into daylight. */
+.daylight .sq.occupied .chip,
+.daylight .sq .chip { opacity: 0; transform: scale(1.35); }
+.daylight .sq.king .chip { animation: none; }
+
+.sq[data-side="w"] .chip {
+  background: #f6f1e4;
+  box-shadow: 0 0 0 1.5px #3a2c16, 0 1px 3px rgba(0, 0, 0, .45);
+}
+.sq[data-side="b"] .chip {
+  background: #14181f;
+  box-shadow: 0 0 0 2px #dfe7ee, 0 1px 3px rgba(0, 0, 0, .5);
+}
+
+/* ---------- the king ----------
+   The radial aura this replaces was the right idea for a ring treatment and
+   the wrong one here: the chip sat on top of it and muddled it. So the king
+   is marked INSIDE its chip, with the cross off its own crown. A static mark
+   rather than motion is what carries it — the slow breath underneath is a
+   grace note, and reduced-motion loses nothing by dropping it.
+
+   It cannot be mistaken for selection (that lives at the square's edge, in
+   green) and there is no occupancy ring left to confuse it with. */
+.cross {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  opacity: 0;
+  transition: opacity 320ms ease;
+}
+.cross::before,
+.cross::after { content: ""; position: absolute; border-radius: 1px; }
+.cross::before { left: 50%; top: 0; width: 3px; height: 11px; margin-left: -1.5px; }
+.cross::after { top: 50%; left: 0; height: 3px; width: 11px; margin-top: -1.5px; }
+
+.sq.king .cross { opacity: 1; }
+.sq.king[data-side="w"] .cross::before,
+.sq.king[data-side="w"] .cross::after { background: #2b1d0d; }
+.sq.king[data-side="b"] .cross::before,
+.sq.king[data-side="b"] .cross::after { background: #f2ece0; }
+
 .sq.king { z-index: 2; }
-.sq.king .aura { opacity: 1; animation: king-breathe 4.6s ease-in-out infinite alternate; }
-.daylight .aura { display: none; }
-
-.sq.king[data-side="w"] .aura {
-  background: radial-gradient(circle at 50% 50%,
-    rgba(255, 246, 224, 0.58) 0%,
-    rgba(255, 232, 170, 0.34) 34%,
-    rgba(255, 214, 120, 0.16) 54%,
-    rgba(255, 214, 120, 0) 72%);
-}
-/* Black's aura carries most of its weight in the corona rather than the core.
-   A dark core heavy enough to read on a bright amber square turns into a hole
-   on an unlit one and swallows the tint underneath — so the dark is kept light
-   and the cool ring does the work. */
-.sq.king[data-side="b"] .aura {
-  background: radial-gradient(circle at 50% 50%,
-    rgba(2, 6, 14, 0.30) 0%,
-    rgba(2, 6, 14, 0.24) 26%,
-    rgba(168, 210, 255, 0.42) 50%,
-    rgba(168, 210, 255, 0.16) 63%,
-    rgba(168, 210, 255, 0) 78%);
-}
-
+.sq.king .chip { animation: king-breathe 4.6s ease-in-out infinite alternate; }
 @keyframes king-breathe {
-  from { transform: scale(0.86); opacity: 0.72; }
-  to   { transform: scale(1.08); opacity: 1; }
+  from { transform: scale(0.94); }
+  to   { transform: scale(1.06); }
 }
 
 .sq.to::after,
@@ -288,11 +293,13 @@ body.day .mode .orb {
 }
 .sq.from::after { border-style: dotted; opacity: 0.55; }
 
+/* Selection is the only thing left at the edge of the square. */
 .sq.sel .glow {
+  opacity: 1;
   box-shadow:
     inset 0 0 0 2px var(--green),
     inset 0 0 10px rgba(168, 224, 32, 0.45),
-    0 0 12px rgba(168, 224, 32, 0.3) !important;
+    0 0 12px rgba(168, 224, 32, 0.3);
 }
 
 /* Attacker counts overlay */
@@ -314,11 +321,17 @@ body.day .mode .orb {
 
 /* ---------- daylight: the actual pieces ----------
    Drawn as SVG, not Unicode text. See js/pieces.js for why. */
+/* The chip and the piece share a centre, and the mode switch crossfades
+   between them — the chip expands and fades as the piece resolves in — so
+   the change reads as the same object coming into focus rather than as one
+   thing being swapped for another. */
 .piece {
   position: absolute;
   inset: 5%;
-  display: none;
   pointer-events: none;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 320ms ease, transform 320ms cubic-bezier(.34,1.3,.64,1);
 }
 .piece svg {
   width: 100%;
@@ -327,7 +340,7 @@ body.day .mode .orb {
   overflow: visible;
   filter: drop-shadow(0 1px 1.5px rgba(40, 24, 8, 0.35));
 }
-.daylight .piece { display: block; }
+.daylight .piece { opacity: 1; transform: scale(1); }
 .daylight .glow { opacity: 0 !important; box-shadow: none !important; }
 .daylight .sq.to::after,
 .daylight .sq.from::after { border-color: rgba(60, 40, 20, 0.55); }
@@ -597,8 +610,8 @@ body.day .chk.counts-toggle { opacity: 0.4; pointer-events: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sq, .glow { transition-duration: 1ms !important; transition-delay: 0ms !important; }
-  /* The king's aura is placed rather than animated — still there, still
-     readable, just not breathing. */
-  .sq.king .aura { animation: none; transform: scale(1); opacity: 1; }
+  .sq, .glow, .chip { transition-duration: 1ms !important; transition-delay: 0ms !important; }
+  /* The king's breath stops; the cross that actually identifies it is static,
+     so nothing is lost. */
+  .sq.king .chip { animation: none; transform: scale(1); }
 }
